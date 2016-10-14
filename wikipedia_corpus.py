@@ -1,3 +1,4 @@
+# Source for derivation/implementation of this code: http://radimrehurek.com/gensim/index.html
 DEFAULT_DICT_SIZE = 170000
 import gensim
 from gensim.corpora import WikiCorpus, MmCorpus, Dictionary
