@@ -49,7 +49,7 @@ def filter_saved_corpus():
 
 def get_topic_coherence():
 	dictionary = Dictionary.load('./data/author_topic.dict')
-    corpus = MmCorpus('./data/author_topic.mm')
+        corpus = MmCorpus('./data/author_topic.mm')
 	lda = LdaModel.load('./data/at_100_lem_5_pass_2.model')
 	cm = CoherenceModel(model=lda, corpus=corpus, dictionary=dictionary, coherence='u_mass')
 	print(cm.get_coherence())
