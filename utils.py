@@ -47,6 +47,7 @@ def filter_saved_corpus():
     lda = gensim.models.ldamodel.LdaModel(corpus=bow_corpus, id2word=dictionary, num_topics=100, update_every=1, chunksize=10000, passes=1)
     lda.save('data.new_old/lda_filtered.model')
 
+# http://nbviewer.jupyter.org/github/dsquareindia/gensim/blob/a4b2629c0fdb0a7932db24dfcf06699c928d112f/docs/notebooks/topic_coherence_tutorial.ipynb
 def get_topic_coherence():
 	dictionary = Dictionary.load('./data/author_topic.dict')
         corpus = MmCorpus('./data/author_topic.mm')
