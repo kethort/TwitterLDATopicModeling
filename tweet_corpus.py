@@ -1,3 +1,4 @@
+# Source for derivation/implementation of this code: http://radimrehurek.com/gensim/index.html
 import logging
 import os
 import sys
