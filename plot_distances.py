@@ -18,15 +18,15 @@ from gensim import corpora, models, matutils
 def user_to_internal_users_graph(community):
     """
 
-    creates a graph for each user in the community comparing the cosine, euclidean,
-    hellinger and jensen shannon distances/divergences against all other users in the same community
+    creates graph displaying each user in the community comparing the cosine, euclidean,
+    hellinger and jensen shannon distances/divergences against other users in same community
 
     Methods used:
     > internal_graph_axes()
     > draw_scatter_graph()
 
     """
-    # some communities will not contain any users because of earlier pre-processing
+    # skip communities not contain any users because of earlier pre-processing
     try:
         with open(community + '/community_doc_vecs.pickle', 'rb') as comm_doc_vecs_file:
             comm_doc_vecs = pickle.load(comm_doc_vecs_file)
@@ -80,7 +80,7 @@ def user_to_internal_users_graph(community):
 def internal_graph_axes(user, csv_reader, output_path):
     """
 
-    returns two lists containing the plot points for both the x and y axes
+    returns plot points for x and y axes
 
     """
     x = 0
@@ -101,7 +101,7 @@ def internal_graph_axes(user, csv_reader, output_path):
 def draw_scatter_graph(title, x_label, y_label, x_axis, y_axis, min_x, max_x, min_y, max_y, output_path):
     """
 
-    outputs a scatter graph as .png file
+    outputs scatter graph
 
     """
     fig = plt.figure()
@@ -120,14 +120,11 @@ def draw_scatter_graph(title, x_label, y_label, x_axis, y_axis, min_x, max_x, mi
 def user_to_external_users_graph(user_topics_dir, community):
     """
 
-    creates a graph for each user in the community comparing the cosine, euclidean,
+    creates graph displaying each user in the community comparing the cosine, euclidean,
     hellinger and jensen shannon distances/divergences against randomly selected users from outside
     communities.
 
     The measured distances/divergences between users is averaged over a set amount of iterations.
-
-    This is equivalent to comparing a set of random external users equal to the same size as
-    the current community, a given amount of times.
 
     Methods used:
     > get_rand_users()
@@ -177,7 +174,7 @@ def user_to_external_users_graph(user_topics_dir, community):
                 distances = defaultdict(lambda: [0] * (len(comm_doc_vecs) - 1))
                 while(i < (len(comm_doc_vecs) - 1) * NUM_ITER):
                     for n in xrange(0, len(comm_doc_vecs) - 1):
-                        # circular queue bypasses limitation of possible external community users
+                        # circular queue exceeds limitation of possible external community users
                         # in get_rand_users method
                         rand_user = external_users.pop()
                         external_users.insert(0, rand_user)
@@ -188,13 +185,13 @@ def user_to_external_users_graph(user_topics_dir, community):
                         cos = distance.cosine(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
                         euc = distance.euclidean(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
 
-                        # refer to documentation/defaultdict_explanation.png for info
                         distances['hel'][n] += hel
                         distances['cos'][n] += cos
                         distances['euc'][n] += euc
                         distances['jen'][n] += jsd
                 i = 0
 
+                # mmmmm....repeating code...doh!
                 with open(jsd_path + user, 'w') as graph_numbers:
                     for dist in distances['jen']:
                         graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
@@ -241,14 +238,14 @@ def user_to_external_users_graph(user_topics_dir, community):
 def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
     """
 
-    returns a multiple of a list of random users not in the current users' own community
+    returns multiple of a list of random users not in the current users' community
 
-    If the number of iterations is set to 10, the random users returned will be equal to:
+    If number of iterations is set to 10, the random users returned is equal to:
       10 * (len(users in the community) - 1)
 
-    When the number of iterations is set to a large number, the amount of possible external
-    users to compare against will be limited by the size of the length of all the users in all of
-    the external communities.
+    When number of iterations is set to a large number, the amount of possible external
+    users to compare against is limited by size of length of all users in all external
+    communities.
 
     """
 
@@ -264,7 +261,7 @@ def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
 def user_internal_external_distance(community):
     """
 
-    creates folders and figures for user internal vs external distance graphs
+    folders and figures for user internal vs external distance graphs
 
     Methods used:
     > draw_user_internal_external_graph()
@@ -305,8 +302,8 @@ def user_internal_external_distance(community):
 def draw_user_internal_external_graph(user, dist_path, community, metric):
     """
 
-    draws user to internal vs user to external distance
-    graphs and writes plotted data to files in respective community directories
+    user to internal against user to external distance
+    graphs, puts plotted data into community directories
 
     """
 
@@ -348,8 +345,7 @@ def draw_user_internal_external_graph(user, dist_path, community, metric):
 def num_users_distance_range_graph(community):
     """
 
-    creates directories for and executes methods for drawing user to internal and
-    external distance range graphs for a community
+    directories for user to internal plus external distance graphs of community
 
     Methods used:
     > draw_num_users_distance_range_graph
@@ -387,8 +383,8 @@ def num_users_distance_range_graph(community):
 def draw_num_users_distance_range_graph(community, comm_doc_vecs, output_dir, metric):
     """
 
-    creates a bar graph that represents the number of occurrences in which users in
-    a community are distant from other users in the same community within given ranges of distances
+    bar graph showing number of occurrences that users in community are distant 
+    from other users in the same community 
 
     Methods used:
     > num_internal_users()
@@ -442,7 +438,7 @@ def draw_num_users_distance_range_graph(community, comm_doc_vecs, output_dir, me
 def get_num_users(csv_reader):
     """
 
-    returns a list of integers representing the distances that fall within a range
+    list of integers represent distances that fall within a set of ranges
     for hellinger, cosine and euclidean metrics
 
     """
@@ -478,8 +474,8 @@ def get_num_users(csv_reader):
 def get_num_users_jsd(csv_reader):
     """
 
-    returns a list of integers representing the divergences that fall within a range
-    for jensen shannon metric
+    list of integers showing divergences that within a set of ranges
+    jensen shannon 
 
     """
     distance = grp_1 = grp_2 = grp_3 = grp_4 = grp_5 = grp_6 = grp_7 = 0
@@ -508,8 +504,8 @@ def get_num_users_jsd(csv_reader):
 def community_average_internal_external_distance(user_topics_dir):
     """
 
-    creates graphs displaying the average internal vs average external distances
-    for both communities and cliques
+    graphs displaying average internal vs average external distances
+    for communities and cliques
 
     Methods used:
     > community_clique_average_axes()
@@ -566,7 +562,7 @@ def community_average_internal_external_distance(user_topics_dir):
 def community_clique_average_axes(dist_dirs, filename):
     """
 
-    returns two lists one with the coordinates for the y axis of the
+    two lists one with the coordinates for the y axis of the
     average distances for a clique and the other for a community.
 
 
@@ -590,10 +586,10 @@ def community_clique_average_axes(dist_dirs, filename):
 def average_similarity_clique_community_size_graph(user_topics_dir):
     """
 
-    creates a graph displaying the average distances in relation to community size
-    and sets up the axes for drawing derivative graphs
+    graph displaying the average distances compared to community size
+    sets up the axes for drawing other graphs
 
-    ** currently only setup to draw graphs using jensen shannon divergence
+    ** currently only draws graphs using jensen shannon divergence
 
     Methods used:
     > get_num_communities_jsd()
@@ -682,10 +678,10 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
 def draw_num_communities_range_graph(user_topics_dir, int_clq, ext_clq, int_comm, ext_comm):
     """
 
-    creates a graph displaying the internal and external distribution for the average distances/divergences
-    for all communities and cliques in the dataset
+    graph displaying internal and external distribution for average distances/divergences
+    for all communities and cliques in dataset
 
-    ** currently only setup to display results for jensen shannon divergence
+    ** currently only displays results for jensen shannon divergence
 
     """
     width = 0.2
@@ -711,8 +707,8 @@ def draw_num_communities_range_graph(user_topics_dir, int_clq, ext_clq, int_comm
 def get_num_communities_jsd(distance, avg_dists_range):
     """
 
-    returns a list of integers representing the amount of cliques/communities whose
-    average distances/divergences fall within a certain range
+    list of integers showing the amount of cliques/communities whose
+    average distances/divergences fall within a set of ranges
 
     """
     grp_1 = grp_2 = grp_3 = grp_4 = grp_5 = grp_6 = grp_7 = 0
@@ -737,10 +733,10 @@ def get_num_communities_jsd(distance, avg_dists_range):
 def draw_num_clq_comm_int_range_graph(user_topics_dir, dists_1, dists_2, title, lg_lbl_1, lg_lbl_2, out_name):
     """
 
-    creates a graph displaying the difference in the distribution of internal average clique and average community
-    distances/divergences which fall into certain ranges
+    graph displaying difference in distribution of internal average clique vs average community
+    distances/divergences which fall into set of ranges
 
-    ** currently only setup to display jensen shannon divergence distribution
+    ** currently only displays distribution for jensen shannon divergence 
 
     """
     width = 0.3
@@ -764,10 +760,10 @@ def draw_num_clq_comm_int_range_graph(user_topics_dir, dists_1, dists_2, title, 
 def distributed_average_similarity_clique_community_size_graph(user_topics_dir, clq_divs, comm_divs):
     """
 
-    draws a graph that displays the average of the internal clique and internal
-    community average distance/divergence in relation to the size of the clique or community
+    graph displays the average of the internal clique and internal
+    community average distance/divergence compared to the size of the clique or community
 
-    ** currently only setup to display the jensen shannon divergence
+    ** currently only displays the jensen shannon divergence
 
     """
     clq_x_axis = []
@@ -844,19 +840,13 @@ def delete_inactive_users(user_topics_dir, community, users_to_delete):
     
 def remove_users_less_than_n_tweets(n, user_topics_dir):
     """
-
+    
     removes users whose total tweets in timeline are less than size n 
 
-    this should be after all comm graphs made but before aggregate comm graphs
-
-    to undo the changes done from this method, use revert_to_downloaded_state()
-
-    the all_community_doc_vecs.pickle file can be rebuilt using the new community 
-    document vector dictionaries but isn't necessary because the only time it is used
-    is when the users are being compared to external users
+    undo the changes done from this method, use revert_to_downloaded_state() in utils.py
 
     to rebuild all_community_doc_vecs.pickle, delete the original file and run
-    combine_vector_dictionaries() in tweets_on_LDA.py for each community
+    combine_vector_dictionaries() in tweets_on_LDA.py for all communities
 
     """
     if not os.path.exists(os.path.dirname('tweets_dir/')):
@@ -884,27 +874,12 @@ def remove_users_less_than_n_tweets(n, user_topics_dir):
 
 def main(user_topics_dir):
     """
-
-    The outline of function main is the order that the program should be
-    run in. The commented out sections of code are optional but should be 
-    run in the order they are in. 
-
-    If you have more than one user topics folder from differently trained LDA
-    models, and you are runnning the script on a computer with more than one core,
-    you can run multiple instances of this program in different terminal windows.
-
-    since there are many graphs and communities in the user topics directory, 
-    the directory will take a minute or two to show all the files when opened so don't assume
-    that the files are not in there; they should be in there if the program ran 
-    successfully. 
-
-    example run of program:
+    argument for program should be user_topics_dir location
+    
+    example:
         - python plot_distances.py user_topics_75
 
-    **if the LDA models were trained using lemmatization, then the version of python to be 
-      used when running this script must be 2.7 or lower. This is due to the way the dictionaries
-      were serialized. This can be avoided by using convert_pickle_to_json() method and then 
-      changing the rest of the code to use the json files to load the dictionary objects. 
+    If the LDA models were trained using lemmatization, use Python2.7 or less
 
     """
     user_topics_dir += '/'
