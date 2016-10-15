@@ -168,72 +168,72 @@ def user_to_external_users_graph(user_topics_dir, community):
     progress_label = 'Drawing user to external users graphs for: ' + str(community)
     with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
         for user in doc_vectors:
-            if not(os.path.exists(jsd_path + user) and os.path.exists(hel_path + user) and os.path.exists(euc_path + user) and os.path.exists(cos_path + user)):
-                y_axis = []
-                i = 0
-                distances = defaultdict(lambda: [0] * (len(comm_doc_vecs) - 1))
-                while(i < (len(comm_doc_vecs) - 1) * NUM_ITER):
-                    for n in xrange(0, len(comm_doc_vecs) - 1):
-                        # circular queue exceeds limitation of possible external community users
-                        # in get_rand_users method
-                        rand_user = external_users.pop()
-                        external_users.insert(0, rand_user)
-                        i += 1
+            #if not(os.path.exists(jsd_path + user) and os.path.exists(hel_path + user) and os.path.exists(euc_path + user) and os.path.exists(cos_path + user)):
+            y_axis = []
+            i = 0
+            distances = defaultdict(lambda: [0] * (len(comm_doc_vecs) - 1))
+            while(i < (len(comm_doc_vecs) - 1) * NUM_ITER):
+                for n in xrange(0, len(comm_doc_vecs) - 1):
+                    # circular queue exceeds limitation of possible external community users
+                    # in get_rand_users method
+                    rand_user = external_users.pop()
+                    external_users.insert(0, rand_user)
+                    i += 1
 
-                        jsd = tlda.jensen_shannon_divergence(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                        hel = tlda.hellinger_distance(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                        cos = distance.cosine(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                        euc = distance.euclidean(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+                    jsd = tlda.jensen_shannon_divergence(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+                    hel = tlda.hellinger_distance(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+                    cos = distance.cosine(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+                    euc = distance.euclidean(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
 
-                        distances['hel'][n] += hel
-                        distances['cos'][n] += cos
-                        distances['euc'][n] += euc
-                        distances['jen'][n] += jsd
-                i = 0
+                    distances['hel'][n] += hel
+                    distances['cos'][n] += cos
+                    distances['euc'][n] += euc
+                    distances['jen'][n] += jsd
+            i = 0
 
-                # mmmmm....repeating code...doh!
-                with open(jsd_path + user, 'w') as graph_numbers:
-                    for dist in distances['jen']:
-                        graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
-                        y_axis.append(dist/NUM_ITER)
-                user_avg_dist['jen'].append(np.average(y_axis))
-                if not os.path.exists(jsd_path + user + '.png'):
-                    draw_scatter_graph(user, 'External Users', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + .01), jsd_path + user)
-                y_axis = []
-                with open(hel_path + user, 'w') as graph_numbers:
-                    for dist in distances['hel']:
-                        graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
-                        y_axis.append(dist/NUM_ITER)
-                user_avg_dist['hel'].append(np.average(y_axis))
-                if not os.path.exists(hel_path + user + '.png'):
-                    draw_scatter_graph(user, 'External Users', 'Hellinger Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, hel_path + user)
-                y_axis = []
-                with open(cos_path + user, 'w') as graph_numbers:
-                    for dist in distances['cos']:
-                        graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
-                        y_axis.append(dist/NUM_ITER)
-                user_avg_dist['cos'].append(np.average(y_axis))
-                if not os.path.exists(cos_path + user + '.png'):
-                    draw_scatter_graph(user, 'External Users', 'Cosine Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, cos_path + user)
-                y_axis = []
-                with open(euc_path + user, 'w') as graph_numbers:
-                    for dist in distances['euc']:
-                        graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
-                        y_axis.append(dist/NUM_ITER)
-                user_avg_dist['euc'].append(np.average(y_axis))
-                if not os.path.exists(euc_path + user + '.png'):
-                    draw_scatter_graph(user, 'External Users', 'Euclidean Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, euc_path + user)
+            # mmmmm....repeating code...doh!
+            with open(jsd_path + user, 'w') as graph_numbers:
+                for dist in distances['jen']:
+                    graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
+                    y_axis.append(dist/NUM_ITER)
+            user_avg_dist['jen'].append(np.average(y_axis))
+            if not os.path.exists(jsd_path + user + '.png'):
+                draw_scatter_graph(user, 'External Users', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + .01), jsd_path + user)
+            y_axis = []
+            with open(hel_path + user, 'w') as graph_numbers:
+                for dist in distances['hel']:
+                    graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
+                    y_axis.append(dist/NUM_ITER)
+            user_avg_dist['hel'].append(np.average(y_axis))
+            if not os.path.exists(hel_path + user + '.png'):
+                draw_scatter_graph(user, 'External Users', 'Hellinger Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, hel_path + user)
+            y_axis = []
+            with open(cos_path + user, 'w') as graph_numbers:
+                for dist in distances['cos']:
+                    graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
+                    y_axis.append(dist/NUM_ITER)
+            user_avg_dist['cos'].append(np.average(y_axis))
+            if not os.path.exists(cos_path + user + '.png'):
+                draw_scatter_graph(user, 'External Users', 'Cosine Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, cos_path + user)
+            y_axis = []
+            with open(euc_path + user, 'w') as graph_numbers:
+                for dist in distances['euc']:
+                    graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
+                    y_axis.append(dist/NUM_ITER)
+            user_avg_dist['euc'].append(np.average(y_axis))
+            if not os.path.exists(euc_path + user + '.png'):
+                draw_scatter_graph(user, 'External Users', 'Euclidean Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, euc_path + user)
 
-        with open(community + '/distance_info/external_average_distances', 'w') as outfile:
-            for metric in user_avg_dist:
-                if(metric == 'jen'):
-                    outfile.write('{}\t{}\n'.format('jensen_shannon', np.average(user_avg_dist[metric])))
-                elif(metric == 'hel'):
-                    outfile.write('{}\t{}\n'.format('hellinger', np.average(user_avg_dist[metric])))
-                elif(metric == 'euc'):
-                    outfile.write('{}\t{}\n'.format('euclidean', np.average(user_avg_dist[metric])))
-                elif(metric == 'cos'):
-                    outfile.write('{}\t{}\n'.format('cosine', np.average(user_avg_dist[metric])))
+    with open(community + '/distance_info/external_average_distances', 'w') as outfile:
+        for metric in user_avg_dist:
+            if(metric == 'jen'):
+                outfile.write('{}\t{}\n'.format('jensen_shannon', np.average(user_avg_dist[metric])))
+            elif(metric == 'hel'):
+                outfile.write('{}\t{}\n'.format('hellinger', np.average(user_avg_dist[metric])))
+            elif(metric == 'euc'):
+                outfile.write('{}\t{}\n'.format('euclidean', np.average(user_avg_dist[metric])))
+            elif(metric == 'cos'):
+                outfile.write('{}\t{}\n'.format('cosine', np.average(user_avg_dist[metric])))
 
 def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
     """
