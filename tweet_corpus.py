@@ -1,4 +1,4 @@
-# Source for this code: http://radimrehurek.com/gensim/index.html
+# Source for Gensim library and tutorials: http://radimrehurek.com/gensim/index.html
 import logging
 import os
 import sys
@@ -17,8 +17,7 @@ logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=lo
 
 def preprocess_tweet(tweet):
     """
-    Preprocess a single tweet, returning the result as
-    a unicode string.
+    Preprocess a single tweet
     """
     # transform tweet document into one string
     text = ' '.join(line.rstrip('\n') for line in tweet)
