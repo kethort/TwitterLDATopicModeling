@@ -92,7 +92,7 @@ def combine_vector_dictionaries(user_topics_dir, community_doc_vecs):
     with open(user_topics_dir + 'all_community_doc_vecs.pickle', 'wb') as all_community_doc_vecs_file:
         pickle.dump(all_community_doc_vecs, all_community_doc_vecs_file, -1)
 
-# create a list of lines from pre-processed tweet input file
+# prepare text document for later conversion to bag of words
 def convert_to_doc(tweet):
     with open(tweet, 'r') as infile:
         text = ' '.join(line.rstrip('\n') for line in infile)
