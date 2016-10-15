@@ -54,7 +54,7 @@ def authenticate(credentials):
                 print("Authentication Completed\n")
                 return api
 
-        except tweepy.TweepError, e:
+        except tweepy.TweepError as e:
             error = e.message[0]['code']
             # bad credentials
             if error == 32 or error == 89:
@@ -65,7 +65,10 @@ def authenticate(credentials):
             elif error == 136:
                 print('Your account has been blacklisted from using the API')
             else:
-                print(e)
+                print(str(e))
+
+        except Exception as e:
+            print(str(e))
 
         finally:
             if index < (len(credentials) - 1):
@@ -115,10 +118,12 @@ def write_tweet_meta(tweets, meta_filename, followers_filename):
                 for tag in tagList:
                     hashtags.append(tag['text'])
         
+            # if the tweet is not a retweet
             if not hasattr(tweet, 'retweeted_status'):
                 out = '%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n' % ('T', user_id, user_id, retweet_count, tweet_id, hashtags, screen_name) 
-            # if retweet, get user id of original tweet 
+            # if it is retweet, get user id of original tweet 
             else:
+                # must be defined in the else because if incoming tweet is not a retweet
                 rt_user_id = tweet.retweeted_status.user.id
                 rt_screen_name = tweet.retweeted_status.user.screen_name
                 orig_tweet_id = tweet.retweeted_status.id_str
@@ -130,11 +135,12 @@ def get_followers(user_id, api, credentials):
     followers = []
     while True:
         try:
-            cursor = tweepy.Cursor(api.followers, id=user_id, monitor_rate_limit=True, wait_on_rate_limit=True).pages()
+            # cursor = tweepy.Cursor(api.followers, id=user_id, monitor_rate_limit=True, wait_on_rate_limit=True).pages()
+            cursor = tweepy.Cursor(api.followers, id=user_id).pages()
             for page in cursor:
                 followers += page
 
-        except tweepy.TweepError, e:
+        except tweepy.TweepError as e:
             error = e.message[0]['code']
             
             # user does not exist
@@ -148,7 +154,10 @@ def get_followers(user_id, api, credentials):
                 continue
 
             else:
-                print(e)
+                print(str(e))
+
+        except Exception as e:
+            print(str(e))
                 
         finally:
             return tweets, api
@@ -162,7 +171,7 @@ def get_tweets(user_id, api, credentials):
             for page in cursor:
                 tweets += page
 
-        except tweepy.TweepError, e:
+        except tweepy.TweepError as e:
             error = e.message[0]['code']
             
             # user does not exist
@@ -177,6 +186,9 @@ def get_tweets(user_id, api, credentials):
 
             else:
                 print(e)
+
+        except Exception as e:
+            print(e)
 
         finally:
             return tweets, api
@@ -201,6 +213,9 @@ def is_active_user(api, inactive_users, active_users, user_id):
 
         else:
             print(e)
+
+    except Exception as e:
+        print(e)
 
     finally:
         return result
@@ -235,6 +250,8 @@ def main(arg1):
 
         # don't waste time trying to download tweets for inactive user
         if not is_active_user(api, inactive_users, active_users, user):
+            if not str(user) in inactive_users:
+                inactive_users[str(user)] = 0 
             continue
 
         if os.path.exists(tweets_dir + str(user)):
