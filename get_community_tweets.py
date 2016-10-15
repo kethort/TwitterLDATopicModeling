@@ -115,12 +115,10 @@ def write_tweet_meta(tweets, meta_filename, followers_filename):
                 for tag in tagList:
                     hashtags.append(tag['text'])
         
-            # if the tweet is not a retweet
             if not hasattr(tweet, 'retweeted_status'):
                 out = '%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n' % ('T', user_id, user_id, retweet_count, tweet_id, hashtags, screen_name) 
-            # if it is retweet, get user id of original tweet 
+            # if retweet, get user id of original tweet 
             else:
-                # must be defined in the else because if incoming tweet is not a retweet
                 rt_user_id = tweet.retweeted_status.user.id
                 rt_screen_name = tweet.retweeted_status.user.screen_name
                 orig_tweet_id = tweet.retweeted_status.id_str
