@@ -8,7 +8,10 @@ from scipy.linalg import norm
 from scipy.stats import entropy
 import gensim
 from gensim import utils, corpora, models
+import multiprocessing
+from functools import partial
 import pickle
+import mmap
 import sys
 import re
 import os
@@ -78,9 +81,10 @@ def community_average_distances(community_dir):
             # find the average distances between users for the community
             with open(path + distance_file, 'r') as infile:
                 csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-                distances = [float(row['distance']) for row in csv_reader]
-            with open(path + 'community_average_distances', 'a') as outfile:
-                outfile.write('{}\t{}\n'.format(str(distance_file), scipy.mean(distances)))
+                distances = [float(row['distance']) for row in csv_reader if row['distance']]
+            if distances:
+                with open(path + 'community_average_distances', 'a') as outfile:
+                    outfile.write('{}\t{}\n'.format(str(distance_file), scipy.mean(distances)))
     
 def combine_vector_dictionaries(user_topics_dir, community_doc_vecs):
     if os.path.exists(user_topics_dir + 'all_community_doc_vecs.pickle'):
@@ -119,13 +123,13 @@ def get_user_document_vectors(tweetpath, user_id, community_dir, user_topics_dir
         document = convert_to_doc(tweetpath)
 
         # load wiki dictionary
-        dictionary = corpora.Dictionary.load('data/author_topic.dict')
+        dictionary = corpora.Dictionary.load('data/tweets.dict')
 
         # create bag of words from input document
         doc_bow = dictionary.doc2bow(document)
 
         # load trained wiki model from file
-        lda_model = models.LdaModel.load('data/at_100_lem_5_pass_2.model')
+        lda_model = models.LdaModel.load('data/tweets_100_lem_5_pass.model')
 
         # queries the document against the LDA model and associates the data with probabalistic topics
         doc_lda = get_doc_topics(lda_model, doc_bow)
@@ -143,8 +147,7 @@ def get_doc_topics(lda, bow):
     return [(topic_id, topic_value) for topic_id, topic_value in enumerate(topic_dist)]
         
 def main(arg1):
-    user_topics_dir = 'user_topics/'
-    community_tweet_dirs = []
+    user_topics_dir = 'user_topics_ex/'
 
     # create output directories
     if not os.path.exists(os.path.dirname(user_topics_dir)):
@@ -153,18 +156,18 @@ def main(arg1):
     with open(arg1, 'r') as topology_file:
         for i, community in enumerate(topology_file):
             community_dir = user_topics_dir + 'community_' + str(i) + '/'
-
+ 
             if not os.path.exists(os.path.dirname(community_dir)):
                 os.makedirs(os.path.dirname(community_dir), 0o755)
             if not os.path.exists(os.path.dirname(community_dir + 'distance_info/')):
                 os.makedirs(os.path.dirname(community_dir + 'distance_info/'), 0o755)
-
+ 
             community_doc_vecs = {}
             tmp_doc_vecs = []
             if os.path.exists(community_dir + 'community_doc_vecs.pickle'):
                 with open(community_dir + 'community_doc_vecs.pickle', 'rb') as tmp_doc_vecs_file:
                     tmp_doc_vecs = pickle.load(tmp_doc_vecs_file)
-
+ 
             progress_label = 'Getting document vectors for community: ' + str(i)
             with click.progressbar(ast.literal_eval(community), label=progress_label) as bar:
                 for user in bar:
@@ -181,9 +184,9 @@ def main(arg1):
                             continue
                     else:
                         get_user_document_vectors(tweetpath, user_id, community_dir, user_topics_dir, community_doc_vecs)
-
+ 
             combine_vector_dictionaries(user_topics_dir, community_doc_vecs)
-
+ 
             # save each community document vector dictionary for later use
             with open(community_dir + '/community_doc_vecs.pickle', 'wb') as community_doc_vecs_file:
                 pickle.dump(community_doc_vecs, community_doc_vecs_file, -1)
