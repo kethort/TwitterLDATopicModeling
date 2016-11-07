@@ -1,3 +1,4 @@
+#http://stackoverflow.com/questions/25553919/passing-multiple-parameters-to-pool-map-function-in-python
 import random
 import click
 import csv
@@ -6,6 +7,8 @@ import json
 import os
 import ast
 import sys
+import multiprocessing
+from functools import partial
 import shutil
 from shutil import copyfile
 import numpy as np
@@ -53,29 +56,31 @@ def user_to_internal_users_graph(community):
     if not os.path.exists(os.path.dirname(euc_path)):
         os.makedirs(os.path.dirname(euc_path), 0o755)
 
-    progress_label = 'Drawing user to community graphs for: ' + str(community)
-    with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
-        for user in doc_vectors:
-            if not os.path.exists(jsd_path + user + '.png'):
-                with open(community + '/distance_info/jensen_shannon', 'r') as infile:
-                    csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-                    x_axis, y_axis = internal_graph_axes(user, csv_reader, jsd_path + user)
-                    draw_scatter_graph(user, 'Community users', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + 0.1), jsd_path + user)
-            if not os.path.exists(cos_path + user + '.png'):
-                with open(community + '/distance_info/cosine', 'r') as infile:
-                    csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-                    x_axis, y_axis = internal_graph_axes(user, csv_reader, cos_path + user)
-                    draw_scatter_graph(user, 'Community users', 'Cosine Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, cos_path + user)
-            if not os.path.exists(hel_path + user + '.png'):
-                with open(community + '/distance_info/hellinger', 'r') as infile:
-                    csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-                    x_axis, y_axis = internal_graph_axes(user, csv_reader, hel_path + user)
-                    draw_scatter_graph(user, 'Community users', 'Hellinger Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, hel_path + user)
-            if not os.path.exists(euc_path + user + '.png'):
-                with open(community + '/distance_info/euclidean', 'r') as infile:
-                    csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-                    x_axis, y_axis = internal_graph_axes(user, csv_reader, euc_path + user)
-                    draw_scatter_graph(user, 'Community users', 'Euclidean Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, euc_path + user)
+    print('Drawing user to community graphs for: ' + str(community))
+    #progress_label = 'Drawing user to community graphs for: ' + str(community)
+    #with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
+    #    for user in doc_vectors:
+    for user in comm_doc_vecs:
+        if not os.path.exists(jsd_path + user + '.png'):
+            with open(community + '/distance_info/jensen_shannon', 'r') as infile:
+                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+                x_axis, y_axis = internal_graph_axes(user, csv_reader, jsd_path + user)
+                draw_scatter_graph(user, 'Community users', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + 0.1), jsd_path + user)
+        if not os.path.exists(cos_path + user + '.png'):
+            with open(community + '/distance_info/cosine', 'r') as infile:
+                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+                x_axis, y_axis = internal_graph_axes(user, csv_reader, cos_path + user)
+                draw_scatter_graph(user, 'Community users', 'Cosine Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, cos_path + user)
+        if not os.path.exists(hel_path + user + '.png'):
+            with open(community + '/distance_info/hellinger', 'r') as infile:
+                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+                x_axis, y_axis = internal_graph_axes(user, csv_reader, hel_path + user)
+                draw_scatter_graph(user, 'Community users', 'Hellinger Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, hel_path + user)
+        if not os.path.exists(euc_path + user + '.png'):
+            with open(community + '/distance_info/euclidean', 'r') as infile:
+                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+                x_axis, y_axis = internal_graph_axes(user, csv_reader, euc_path + user)
+                draw_scatter_graph(user, 'Community users', 'Euclidean Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, euc_path + user)
 
 def internal_graph_axes(user, csv_reader, output_path):
     """
@@ -164,11 +169,14 @@ def user_to_external_users_graph(user_topics_dir, community):
     x_axis = np.arange(1, len(comm_doc_vecs))
     external_users = get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER)
     user_avg_dist = defaultdict(list)
+    fieldnames = ['user', 'rand_user', 'dist']
 
-    progress_label = 'Drawing user to external users graphs for: ' + str(community)
-    with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
-        for user in doc_vectors:
-            #if not(os.path.exists(jsd_path + user) and os.path.exists(hel_path + user) and os.path.exists(euc_path + user) and os.path.exists(cos_path + user)):
+    print('Drawing user to external users graphs for: ' + str(community))
+ #    progress_label = 'Drawing user to external users graphs for: ' + str(community)
+ #    with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
+ #       for user in doc_vectors:
+    for user in comm_doc_vecs:
+        if not(os.path.exists(jsd_path + user) and os.path.exists(hel_path + user) and os.path.exists(euc_path + user) and os.path.exists(cos_path + user)):
             y_axis = []
             i = 0
             distances = defaultdict(lambda: [0] * (len(comm_doc_vecs) - 1))
@@ -224,6 +232,36 @@ def user_to_external_users_graph(user_topics_dir, community):
             if not os.path.exists(euc_path + user + '.png'):
                 draw_scatter_graph(user, 'External Users', 'Euclidean Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, euc_path + user)
 
+        else:
+            distances = []
+            with open(jsd_path + user, 'r') as dist_file:
+                csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
+                for row in csv_reader:
+                    distances.append(float(row['dist']))
+            user_avg_dist['jen'].append(np.average(distances))
+
+            distances = []
+            with open(hel_path + user, 'r') as dist_file:
+                csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
+                for row in csv_reader:
+                    distances.append(float(row['dist']))
+            user_avg_dist['hel'].append(np.average(distances))
+
+            distances = []
+            with open(cos_path + user, 'r') as dist_file:
+                csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
+                for row in csv_reader:
+                    distances.append(float(row['dist']))
+            user_avg_dist['cos'].append(np.average(distances))
+
+            distances = []
+            with open(euc_path + user, 'r') as dist_file:
+                csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
+                for row in csv_reader:
+                    distances.append(float(row['dist']))
+            user_avg_dist['euc'].append(np.average(distances))
+
+    #if not(os.path.exists(community + '/distance_info/external_average_distances'):
     with open(community + '/distance_info/external_average_distances', 'w') as outfile:
         for metric in user_avg_dist:
             if(metric == 'jen'):
@@ -291,13 +329,14 @@ def user_internal_external_distance(community):
     if not os.path.exists(os.path.dirname(euc_path)):
         os.makedirs(os.path.dirname(euc_path), 0o755)
 
-    progress_label = 'Drawing distance within community vs distance outside community for: ' + str(community)
-    with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
-        for user in doc_vectors:
-            draw_user_internal_external_graph(user, jsd_path, community, 'jensen_shannon')
-            draw_user_internal_external_graph(user, hel_path, community, 'hellinger')
-            draw_user_internal_external_graph(user, cos_path, community, 'cosine')
-            draw_user_internal_external_graph(user, hel_path, community, 'euclidean')
+    print('Drawing distance within community vs distance outside community for: ' + str(community))
+    #progress_label = 'Drawing distance within community vs distance outside community for: ' + str(community)
+    #with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
+    for user in comm_doc_vecs:
+        draw_user_internal_external_graph(user, jsd_path, community, 'jensen_shannon')
+        draw_user_internal_external_graph(user, hel_path, community, 'hellinger')
+        draw_user_internal_external_graph(user, cos_path, community, 'cosine')
+        draw_user_internal_external_graph(user, hel_path, community, 'euclidean')
 
 def draw_user_internal_external_graph(user, dist_path, community, metric):
     """
@@ -396,44 +435,45 @@ def draw_num_users_distance_range_graph(community, comm_doc_vecs, output_dir, me
 
     fieldnames = ['user_1', 'user_2', 'distance']
 
-    progress_label = 'Drawing number users as grouped ' + str(metric) + ' distance graph for: ' + str(community)
-    with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
-        for user in doc_vectors:
-            if not os.path.exists(output_dir + user + '.png'):
-                with open(internal_data + user, 'r') as plot_file:
-                    csv_reader = csv.DictReader(plot_file, delimiter='\t', fieldnames=fieldnames)
-                    if metric == 'jensen_shannon':
-                        num_internal_users = get_num_users_jsd(csv_reader)
-                    else:
-                        num_internal_users = get_num_users(csv_reader)
-                with open(external_data + user, 'r') as plot_file:
-                    csv_reader = csv.DictReader(plot_file, delimiter='\t', fieldnames=fieldnames)
-                    if metric == 'jensen_shannon':
-                        num_external_users = get_num_users_jsd(csv_reader)
-                    else:
-                        num_external_users = get_num_users(csv_reader)
-
+    print('Drawing number users as grouped ' + str(metric) + ' distance graph for: ' + str(community))
+    #progress_label = 'Drawing number users as grouped ' + str(metric) + ' distance graph for: ' + str(community)
+    #with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
+    for user in comm_doc_vecs:
+        if not os.path.exists(output_dir + user + '.png'):
+            with open(internal_data + user, 'r') as plot_file:
+                csv_reader = csv.DictReader(plot_file, delimiter='\t', fieldnames=fieldnames)
                 if metric == 'jensen_shannon':
-                    plt.xlabel('Jensen Shannon Divergence')
-                    plt.title('Internal/External Divergence Range from User: ' + str(user))
-                    objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '> 0.6')
+                    num_internal_users = get_num_users_jsd(csv_reader)
                 else:
-                    plt.xlabel(str(metric).title() + ' Distance')
-                    plt.title('Internal/External Distance Range from User: ' + str(user))
-                    objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '[0.6, 0.7]', '[0.7, 0.8]', '[0.8, 0.9]', '> 0.9')
+                    num_internal_users = get_num_users(csv_reader)
+            with open(external_data + user, 'r') as plot_file:
+                csv_reader = csv.DictReader(plot_file, delimiter='\t', fieldnames=fieldnames)
+                if metric == 'jensen_shannon':
+                    num_external_users = get_num_users_jsd(csv_reader)
+                else:
+                    num_external_users = get_num_users(csv_reader)
 
-                width = 0.4
-                x_axis = np.arange(len(objects))
-                plt.bar(x_axis - 0.2, num_internal_users, width, alpha=0.4, color='r')
-                plt.bar(x_axis + 0.2, num_external_users, width, alpha=0.4, color='b')
-                plt.ylabel('Number of users')
-                plt.legend(['Internal', 'External',], loc='upper left')
-                plt.xticks(x_axis, objects, rotation=45, fontsize='small')
-                plt.subplots_adjust(bottom=0.2)
-                plt.xlim([-1, len(objects)])
-                plt.ylim([0, len(comm_doc_vecs)])
-                plt.savefig(output_dir + user)
-                plt.close()
+            if metric == 'jensen_shannon':
+                plt.xlabel('Jensen Shannon Divergence')
+                plt.title('Internal/External Divergence Range from User: ' + str(user))
+                objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '> 0.6')
+            else:
+                plt.xlabel(str(metric).title() + ' Distance')
+                plt.title('Internal/External Distance Range from User: ' + str(user))
+                objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '[0.6, 0.7]', '[0.7, 0.8]', '[0.8, 0.9]', '> 0.9')
+
+            width = 0.4
+            x_axis = np.arange(len(objects))
+            plt.bar(x_axis - 0.2, num_internal_users, width, alpha=0.4, color='r')
+            plt.bar(x_axis + 0.2, num_external_users, width, alpha=0.4, color='b')
+            plt.ylabel('Number of users')
+            plt.legend(['Internal', 'External',], loc='upper left')
+            plt.xticks(x_axis, objects, rotation=45, fontsize='small')
+            plt.subplots_adjust(bottom=0.2)
+            plt.xlim([-1, len(objects)])
+            plt.ylim([0, len(comm_doc_vecs)])
+            plt.savefig(output_dir + user)
+            plt.close()
 
 def get_num_users(csv_reader):
     """
@@ -872,9 +912,16 @@ def remove_users_less_than_n_tweets(n, user_topics_dir):
             if users_to_delete:
                 delete_inactive_users(user_topics_dir, community, users_to_delete)
 
+def dir_to_iter(user_topics_dir):
+     for path, dirs, files in os.walk(user_topics_dir):
+         for community in sorted(dirs):
+             yield(path + community)
+         break
+
 def main(user_topics_dir):
     """
     argument for program should be user_topics_dir location
+    and number of cpu processes to spawn(usually 1 less than cores available)
     
     example:
         - python plot_distances.py user_topics_75
@@ -884,16 +931,19 @@ def main(user_topics_dir):
     """
     user_topics_dir += '/'
 
-    if not os.path.exists(os.path.dirname(user_topics_dir)):
-        os.makedirs(os.path.dirname(user_topics_dir), 0o755)
+    #comm_dir = dir_to_iter(user_topics_dir)
 
-    for path, dirs, files in os.walk(user_topics_dir):
-        for community in sorted(dirs):
-            user_to_internal_users_graph(path + community)
-            user_to_external_users_graph(path, path + community)
-            user_internal_external_distance(path + community)
-            num_users_distance_range_graph(path + community)
-        break # restrict directory depth to 1
+    pool = multiprocessing.Pool(4)
+    pool.map(user_to_internal_users_graph, (dirs for dirs in dir_to_iter(user_topics_dir))) 
+ 
+    func = partial(user_to_external_users_graph, user_topics_dir)
+    pool.map(func, (dirs for dirs in dir_to_iter(user_topics_dir)))
+ 
+    pool.map(user_internal_external_distance, (dirs for dirs in dir_to_iter(user_topics_dir)))
+
+    pool.map(num_users_distance_range_graph, (dirs for dirs in dir_to_iter(user_topics_dir)))
+
+    pool.terminate()
     
     remove_users_less_than_n_tweets(5, user_topics_dir)
     delete_inactive_communities(user_topics_dir)
