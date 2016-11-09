@@ -7,6 +7,10 @@ import json
 import os
 import ast
 import sys
+import scipy
+from scipy.spatial import distance
+from scipy.linalg import norm
+from scipy.stats import entropy
 import multiprocessing
 from functools import partial
 import shutil
@@ -17,6 +21,80 @@ import tweets_on_LDA as tlda
 from scipy.spatial import distance
 from collections import defaultdict
 from gensim import corpora, models, matutils
+
+# for each user document vector find the distance from every other user document vector
+# in the community. Dictionary <k, v>(user_id, doc_vec)
+def community_user_distances(community_dir):
+    if not os.path.exists(os.path.dirname(community_dir + '/distance_info/')):
+        os.makedirs(os.path.dirname(community_dir + '/distance_info/'), 0o755)
+    
+    cos_file = community_dir + '/distance_info/cosine'  
+    hell_file = community_dir + '/distance_info/hellinger'
+    euc_file = community_dir + '/distance_info/euclidean'
+    jen_shan_file = community_dir + '/distance_info/jensen_shannon'
+
+    outfiles = [cos_file, hell_file, euc_file, jen_shan_file]
+
+    for outfile in outfiles:
+       if os.path.exists(outfile):
+           os.remove(outfile)
+    
+    # load the community document vector dictionary from file
+    with open(community_dir + '/community_doc_vecs.pickle', 'rb') as community_doc_vecs_file:
+        community_doc_vecs = pickle.load(community_doc_vecs_file)
+
+    print('Calculating user distances for: ' + community_dir)
+    with open(cos_file, 'a') as cosfile, open(hell_file, 'a') as hellfile, open(euc_file, 'a') as eucfile, open(jen_shan_file, 'a') as jenshanfile:
+        for key in sorted(community_doc_vecs):
+            user = key
+            # only necessary to compare each user with another user once
+            vec_1 = community_doc_vecs.pop(key)
+
+            for key_2 in sorted(community_doc_vecs):
+                vec_2 = community_doc_vecs[key_2]
+                cos_dist = distance.cosine(vec_1, vec_2)
+                hel_dist = hellinger_distance(vec_1, vec_2)
+                euc_dist = distance.euclidean(vec_1, vec_2)
+                js_div = jensen_shannon_divergence(vec_1, vec_2)
+                cosfile.write('{}\t{}\t{}\n'.format(user, key_2, cos_dist))
+                hellfile.write('{}\t{}\t{}\n'.format(user, key_2, hel_dist))
+                eucfile.write('{}\t{}\t{}\n'.format(user, key_2, euc_dist))
+                jenshanfile.write('{}\t{}\t{}\n'.format(user, key_2, js_div))
+    community_average_distances(community_dir)
+
+# https://gist.github.com/larsmans/3116927
+def hellinger_distance(P, Q):
+    return distance.euclidean(np.sqrt(P), np.sqrt(Q)) / np.sqrt(2)
+
+# http://stackoverflow.com/questions/15880133/jensen-shannon-distance
+def jensen_shannon_divergence(P, Q):
+    _P = P / norm(P, ord=1)
+    _Q = Q / norm(Q, ord=1)
+    _M = 0.5 * (_P + _Q)
+    return 0.5 * (entropy(_P, _M) + entropy(_Q, _M))
+
+def community_average_distances(community_dir):
+    tot_rows = 0
+    fieldnames = ['user_1', 'user_2', 'distance']
+        
+    if os.path.exists(community_dir + '/distance_info/community_average_distances'):
+        os.remove(community_dir + '/distance_info/community_average_distances')
+    
+    # load the dictionary containing the user document vectors of the community 
+    with open(community_dir + '/community_doc_vecs.pickle', 'rb') as community_doc_vecs_file:
+        community_doc_vecs = pickle.load(community_doc_vecs_file)
+       
+    # access the distance files in the community directory
+    for path, dirs, files in os.walk(community_dir + '/distance_info/'):
+        for distance_file in files:
+            # find the average distances between users for the community
+            with open(path + distance_file, 'r') as infile:
+                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+                distances = [float(row['distance']) for row in csv_reader if row['distance']]
+            if distances:
+                with open(path + 'community_average_distances', 'a') as outfile:
+                    outfile.write('{}\t{}\n'.format(str(distance_file), scipy.mean(distances)))
+        break
 
 def user_to_internal_users_graph(community):
     """
@@ -931,9 +1009,10 @@ def main(user_topics_dir):
     """
     user_topics_dir += '/'
 
-    #comm_dir = dir_to_iter(user_topics_dir)
-
     pool = multiprocessing.Pool(4)
+	
+    pool.map(community_user_distances, (dirs for dirs in dir_to_iter(user_topics_dir)))
+
     pool.map(user_to_internal_users_graph, (dirs for dirs in dir_to_iter(user_topics_dir))) 
  
     func = partial(user_to_external_users_graph, user_topics_dir)
