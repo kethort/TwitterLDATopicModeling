@@ -9,6 +9,8 @@ import sys
 import re
 import os
 import ast
+import multiprocessing
+from functools import partial
 
 def combine_vector_dictionaries(user_topics_dir, community_doc_vecs):
     if os.path.exists(user_topics_dir + 'all_community_doc_vecs.pickle'):
@@ -20,22 +22,62 @@ def combine_vector_dictionaries(user_topics_dir, community_doc_vecs):
     with open(user_topics_dir + 'all_community_doc_vecs.pickle', 'wb') as all_community_doc_vecs_file:
         pickle.dump(all_community_doc_vecs, all_community_doc_vecs_file, -1)
 
+# http://www.blopig.com/blog/2016/08/processing-large-files-using-python/
+def process_wrapper(tweetpath, chunk_start, chunk_size):
+    with open(tweetpath) as f:
+        output = []
+        f.seek(chunk_start)
+        lines = f.read(chunk_size).splitlines()
+        
+        for line in lines:
+            output.append(preprocess_text(line))
+
+        return [item for sublist in output for item in sublist]
+
+def chunkify(fname, size=1024*1024):
+    file_end = os.path.getsize(fname)
+    
+    with open(fname, 'r') as f:
+        chunk_end = f.tell()
+    
+        while True:
+            chunk_start = chunk_end
+            f.seek(size, 1)
+            f.readline()
+            chunk_end = f.tell()
+            yield chunk_start, (chunk_end - chunk_start)
+            
+            if chunk_end > file_end:
+                break
+
+def preprocess_text(text):
+    # remove emoji's and links from tweets
+    # http://stackoverflow.com/questions/26568722/remove-unicode-emoji-using-re-in-python
+    try:
+        reg_ex = re.compile(u'([\U0001F300-\U0001F64F])|([\U0001F680-\U0001F6FF])|([\U00002600-\U000027BF])')
+    except:
+        reg_ex = re.compile(u'([\u2600-\u27BF])|([\uD83C][\uDF00-\uDFFF])|([\uD83D][\uDC00-\uDE4F])|([\uD83D][\uDE80-\uDEFF])')
+    text = reg_ex.sub('', text)
+    # http://stackoverflow.com/questions/11331982/how-to-remove-any-url-within-a-string-in-python
+    text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', text)
+    text = re.sub(r'[^\w]', ' ', text) # remove hashtag
+    #return list(utils.simple_preprocess(text, deacc=True, min_len=2, max_len=15))
+    return utils.lemmatize(text)
+
 # prepare text document for later conversion to bag of words
-def convert_to_doc(tweet):
-    with open(tweet, 'r') as infile:
-        text = ' '.join(line.rstrip('\n') for line in infile)
-        # remove emoji's and links from tweets
-        # http://stackoverflow.com/questions/26568722/remove-unicode-emoji-using-re-in-python
-        try:
-            reg_ex = re.compile(u'([\U0001F300-\U0001F64F])|([\U0001F680-\U0001F6FF])|([\U00002600-\U000027BF])')
-        except:
-            reg_ex = re.compile(u'([\u2600-\u27BF])|([\uD83C][\uDF00-\uDFFF])|([\uD83D][\uDC00-\uDE4F])|([\uD83D][\uDE80-\uDEFF])')
-        text = reg_ex.sub('', text)
-        # http://stackoverflow.com/questions/11331982/how-to-remove-any-url-within-a-string-in-python
-        text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', text)
-        text = re.sub(r'[^\w]', ' ', text) # remove hashtag
-        #return list(utils.simple_preprocess(text, deacc=True, min_len=2, max_len=15))
-        return list(utils.lemmatize(text))
+def convert_to_doc(tweetpath):
+    pool = multiprocessing.Pool(8)
+    jobs = []
+    
+    for chunk_start, chunk_size in chunkify(tweetpath):
+        func = partial(process_wrapper, tweetpath)
+        jobs.append(pool.apply_async(func, (chunk_start, chunk_size)))
+
+    document = [job.get() for job in jobs]
+    document = [item for sublist in document for item in sublist]
+
+    pool.close()
+    return document
 
 def get_user_document_vectors(tweetpath, user_id, community_dir, user_topics_dir, community_doc_vecs):
     all_community_doc_vecs = {}
