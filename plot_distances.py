@@ -17,7 +17,6 @@ import shutil
 from shutil import copyfile
 import numpy as np
 import matplotlib.pyplot as plt
-import tweets_on_LDA as tlda
 from scipy.spatial import distance
 from collections import defaultdict
 from gensim import corpora, models, matutils
@@ -266,8 +265,8 @@ def user_to_external_users_graph(user_topics_dir, community):
                     external_users.insert(0, rand_user)
                     i += 1
 
-                    jsd = tlda.jensen_shannon_divergence(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                    hel = tlda.hellinger_distance(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+                    jsd = jensen_shannon_divergence(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+                    hel = hellinger_distance(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
                     cos = distance.cosine(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
                     euc = distance.euclidean(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
 
@@ -912,6 +911,40 @@ def distributed_average_similarity_clique_community_size_graph(user_topics_dir, 
     plt.savefig(output_path)
     plt.close()
 
+def draw_topic_distribution_graph(comm_doc_vecs, user, output_path):
+    if not os.path.exists(output_path + user + '.png'):
+        y_axis = []
+        x_axis = []
+    
+        for topic_id, dist in enumerate(comm_doc_vecs[user]):
+            x_axis.append(topic_id + 1)
+            y_axis.append(dist)
+        width = 1 
+
+        plt.bar(x_axis, y_axis, width, align='center', color='r')
+        plt.xlabel('Topics')
+        plt.ylabel('Probability')
+        plt.title('Topic Distribution for User: ' + user)
+        plt.xticks(np.arange(2, len(x_axis), 2), rotation='vertical', fontsize=7)
+        plt.subplots_adjust(bottom=0.2)
+        plt.ylim([0, np.max(y_axis) + .01])
+        plt.xlim([0, len(x_axis) + 1])
+        plt.savefig(output_path + user)
+        plt.close()
+
+def user_topic_distribution(community_dir):
+    print('Getting topic distribution for : ' + community_dir)
+    output_path = community_dir + '/topic_distribution_graphs/'
+            
+    if not os.path.exists(os.path.dirname(output_path)):
+    	os.makedirs(os.path.dirname(output_path), 0o755)
+
+    with open(community_dir + '/community_doc_vecs.pickle', 'rb') as infile:
+        comm_doc_vecs = pickle.load(infile)
+
+    for user in comm_doc_vecs:
+        draw_topic_distribution_graph(comm_doc_vecs, user, output_path)
+
 def delete_inactive_communities(user_topics_dir):
     '''
 
@@ -1007,8 +1040,6 @@ def main(user_topics_dir):
     If the LDA models were trained using lemmatization, use Python2.7 or less
 
     """
-    user_topics_dir += '/'
-
     pool = multiprocessing.Pool(4)
 	
     pool.map(community_user_distances, (dirs for dirs in dir_to_iter(user_topics_dir)))
@@ -1021,6 +1052,8 @@ def main(user_topics_dir):
     pool.map(user_internal_external_distance, (dirs for dirs in dir_to_iter(user_topics_dir)))
 
     pool.map(num_users_distance_range_graph, (dirs for dirs in dir_to_iter(user_topics_dir)))
+
+    pool.map(user_topic_distribution, (dirs for dirs in dir_to_iter(user_topics_dir)))
 
     pool.terminate()
     
