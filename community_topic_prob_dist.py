@@ -8,30 +8,25 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from shutil import copyfile
-import tweets_on_LDA_2 as tlda
+import tweets_on_LDA as tlda
 import plot_distances as pltd
 
-# load wiki dictionary
-dictionary = corpora.Dictionary.load('data/tweets.dict')
-
-# load trained wiki model from file
-lda = models.LdaModel.load('data/tweets_100_lem_5_pass.model')
-
-def aggregate_tweets(i, clique):
-    print('Aggregating tweets for community_' + str(i))
-    with open('aggregated_tweets/clique_' + str(i), 'w') as outfile:
-        for user in ast.literal_eval(clique):
-            if os.path.exists('dnld_tweets/' + str(user)):
-                with open('dnld_tweets/' + str(user)) as tweet:
-                    for line in tweet:
-                        outfile.write(line)
+def aggregate_tweets(i, clique, tweets_dir):
+    print('Aggregating tweets for clique_' + str(i))
+    if not os.path.exists('aggregated_tweets/clique_' + str(i)):
+        with open('aggregated_tweets/clique_' + str(i), 'w') as outfile:
+            for user in ast.literal_eval(clique):
+                if os.path.exists(tweets_dir + str(user)):
+                    with open(tweets_dir + str(user)) as tweet:
+                        for line in tweet:
+                            outfile.write(line)
 
 def get_doc_topics(lda, bow):
     gamma, _ = lda.inference([bow])
     topic_dist = gamma[0] / sum(gamma[0])
     return [(topic_id, topic_value) for topic_id, topic_value in enumerate(topic_dist)]
 
-def doc_to_vec(tweet):
+def doc_to_vec(tweet, dictionary, lda):
     doc = tlda.convert_to_doc(tweet)
 
     # create bag of words from input document
@@ -63,7 +58,7 @@ def draw_dist_graph(filename, dense_vec):
         plt.savefig(filename)
         plt.close()
 
-def write_topn_words():
+def write_topn_words(lda):
     print('Writing topn words for LDA model')
     reg_ex = re.compile('(?<![\s/])/[^\s/]+(?![\S/])')
     with open('topn_words.txt', 'w') as outfile:
@@ -74,43 +69,66 @@ def write_topn_words():
                 outfile.write('\t{}\n'.format(word.encode('utf-8')))
             outfile.write('\n')
 
-def write_jsd_nums(i, clique_vec, community):
-    with open('distribution_graphs/jensen_shannon_community_' + str(i), 'w') as outfile:
+def write_jsd_nums(i, clique_vec, community, dictionary, lda, all_doc_vecs, tweets_dir):
+    with open('aggregated_tweets/community_user_distances/jensen_shannon_community_' + str(i), 'w') as outfile:
         for user in ast.literal_eval(community):
-            if os.path.exists('dnld_tweets/' + str(user)):
+            if not user in all_doc_vecs:
+                if os.path.exists(tweets_dir + str(user)):
+                    print('Writing Jensen Shannon distance for user ' + str(user) + ' in community ' + str(i))
+                    jsd = pltd.jensen_shannon_divergence(clique_vec, doc_to_vec(tweets_dir + str(user), dictionary, lda))
+                    outfile.write('{}\t{}\t{}\n'.format(user, 'clique', jsd))
+            else:
                 print('Writing Jensen Shannon distance for user ' + str(user) + ' in community ' + str(i))
-                jsd = pltd.jensen_shannon_divergence(clique_vec, doc_to_vec('dnld_tweets/' + str(user)))
+                jsd = pltd.jensen_shannon_divergence(clique_vec, all_doc_vecs[user])
                 outfile.write('{}\t{}\t{}\n'.format(user, 'clique', jsd))
 
-def main(arg1, arg2):
-    write_topn_words()
+
+# clique_top: clique topology, comm_top: community topology, tweets_dir: path of downloaded tweets dir
+# dict_loc: dictionary, lda_loc: lda model,
+# user_topics_dir: directory where lda model was used in plot_distances to create graphs
+
+# python2.7 community_topic_prob_dist.py cliques communities dnld_tweets/ data/twitter/tweets.dict data/twitter/tweets_100_lda_lem_5_pass.model user_topics_100
+def main(clique_top, comm_top, tweets_dir, dict_loc, lda_loc, user_topics_dir):
+    # load wiki dictionary
+    dictionary = corpora.Dictionary.load(dict_loc)
+
+    # load trained wiki model from file
+    lda = models.LdaModel.load(lda_loc)
+
+    write_topn_words(lda)
 
     if not os.path.exists(os.path.dirname('aggregated_tweets/')):
         os.makedirs(os.path.dirname('aggregated_tweets/'), 0o755)
 
-    if not os.path.exists(os.path.dirname('distribution_graphs/')):
-        os.makedirs(os.path.dirname('distribution_graphs/'), 0o755)
+    if not os.path.exists(os.path.dirname('aggregated_tweets/' + user_topics_dir + 'distribution_graphs/')):
+        os.makedirs(os.path.dirname('aggregated_tweets/' + user_topics_dir + 'distribution_graphs/'), 0o755)
 
-    with open(arg1, 'r') as infile:
+    if not os.path.exists(os.path.dirname('aggregated_tweets/' + user_topics_dir + 'community_user_distances/')):
+        os.makedirs(os.path.dirname('aggregated_tweets/' + user_topics_dir + 'community_user_distances/'), 0o755)
+
+    with open(clique_top, 'r') as infile:
         for i, clique in enumerate(infile):
-            aggregate_tweets(i, clique)
+            aggregate_tweets(i, clique, tweets_dir)
 
     clique_vecs = {}
     for path, dirs, files in os.walk('aggregated_tweets/'):
         for filename in files:   
             print('Getting document vector for ' + filename)
-            clique_vecs[filename] = doc_to_vec(path + filename)
-            draw_dist_graph('distribution_graphs/' + filename, clique_vecs[filename])
-        break
+            clique_vecs[filename] = doc_to_vec(path + filename, dictionary, lda)
+            draw_dist_graph('aggregated_tweets/' + user_topics_dir + 'distribution_graphs/' + filename, clique_vecs[filename])
+        break # stop before traversing into newly created dirs
 
-    with open('document_vectors.pickle', 'wb') as outfile:
+    with open('aggregated_tweets/' + user_topics_dir + 'document_vectors.pickle', 'wb') as outfile:
         pickle.dump(clique_vecs, outfile)
 
-    with open(arg2, 'r') as infile:
+    with open(user_topics_dir + 'all_community_doc_vecs.pickle', 'rb') as infile:
+        all_doc_vecs = pickle.load(infile)
+
+    with open(comm_top, 'r') as infile:
         for i, community in enumerate(infile):
-            write_jsd_nums(i, clique_vecs['clique_' + str(i)], community)
+            write_jsd_nums(i, clique_vecs['clique_' + str(i)], community, lda, all_doc_vecs, tweets_dir)
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1], sys.argv[2]))
+    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
 
 
