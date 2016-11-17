@@ -58,10 +58,10 @@ def draw_dist_graph(filename, dense_vec):
         plt.savefig(filename)
         plt.close()
 
-def write_topn_words(lda):
+def write_topn_words(lda, output_path):
     print('Writing topn words for LDA model')
     reg_ex = re.compile('(?<![\s/])/[^\s/]+(?![\S/])')
-    with open('topn_words.txt', 'w') as outfile:
+    with open(output_path + 'topn_words.txt', 'w') as outfile:
         for i in range(lda.num_topics):
             outfile.write('{}\n'.format('Topic #' + str(i + 1) + ': '))
             for word, prob in lda.show_topic(i, topn=20):
@@ -93,9 +93,7 @@ def main(clique_top, comm_top, tweets_dir, dict_loc, lda_loc, user_topics_dir):
     dictionary = corpora.Dictionary.load(dict_loc)
 
     # load trained wiki model from file
-    lda = models.LdaModel.load(lda_loc)
-
-    write_topn_words(lda)
+    lda = models.LdaModel.load(lda_loc, user_topics_dir)
 
     if not os.path.exists(os.path.dirname('aggregated_tweets/')):
         os.makedirs(os.path.dirname('aggregated_tweets/'), 0o755)
@@ -105,6 +103,8 @@ def main(clique_top, comm_top, tweets_dir, dict_loc, lda_loc, user_topics_dir):
 
     if not os.path.exists(os.path.dirname('aggregated_tweets/' + user_topics_dir + 'community_user_distances/')):
         os.makedirs(os.path.dirname('aggregated_tweets/' + user_topics_dir + 'community_user_distances/'), 0o755)
+
+    write_topn_words(lda, 'aggregated_tweets/' + user_topics_dir)
 
     with open(clique_top, 'r') as infile:
         for i, clique in enumerate(infile):
