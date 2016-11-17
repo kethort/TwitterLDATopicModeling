@@ -63,43 +63,41 @@ def build_LDA_model(corp_loc, dict_loc, num_topics, lda_loc):
     vis_data = gensimvis.prepare(lda, bow_corpus, dictionary)
     pyLDAvis.save_html(vis_data, lda_loc + '.html')
 
-# arg1: text or wiki corpus selector, arg2: directory of text docs or location of wiki dump
-# arg3: name of output corpus, arg4: name of output dictionary,
-# arg5: number of topics for model, arg6: name/location of output model
+# option: text or wiki corpus selector, docs_loc: directory of text docs or location of wiki dump
+# output_corpus: name of output corpus, output_dict: name of output dictionary,
+# num_topics: number of topics for model, output_model: name/location of output model
 
 # python2.7 create_LDA_model.py t dnld_tweets/ tweet_corpus tweet_dict 100 lda_model
-def main(arg1, arg2, arg3, arg4, arg5, arg6):
-    if arg1 == 't':
-        
+def main(option, docs_loc, output_corpus, output_dict, num_topics, output_model):
+    if option == 't':
         with open('inactive_users.json', 'r') as infile:
             inactive = json.load(infile)
         
         dir_list = []
-        for path, dirs, files in os.walk(arg2):
+        for path, dirs, files in os.walk(docs_loc):
             for filename in files:
                 if not str(filename) in inactive:
                     dir_list.append(path + filename)
             break
-        print(len(dir_list))
 
         doc_corpus = Document_Corpus(dir_list)
 
         # ignore words that appear in less than 5 documents or more than 5% of documents
         doc_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
-        MmCorpus.serialize(arg3 + '.mm', doc_corpus)
-        tweet_corpus.dictionary.save(arg4 + '.dict')
+        MmCorpus.serialize(output_corpus + '.mm', doc_corpus)
+        tweet_corpus.dictionary.save(output_dict + '.dict')
 
-        build_LDA_model(arg3, arg4, arg5, arg6)
+        build_LDA_model(output_corpus, output_dict, num_topics, output_model)
 
-    if arg1 == 'w':
-        wiki_corpus = WikiCorpus(arg2)
+    if option == 'w':
+        wiki_corpus = WikiCorpus(docs_loc)
         wiki_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
-        MmCorpus.serialize(arg3 + '.mm', wiki_corpus)
-        wiki_corpus.dictionary.save(arg4 + '.dict')
+        MmCorpus.serialize(output_corpus + '.mm', wiki_corpus)
+        wiki_corpus.dictionary.save(output_dict + '.dict')
 
-        build_LDA_model(arg3, arg4, arg5, arg6)
+        build_LDA_model(output_corpus, output_dict, num_topics, output_model)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
