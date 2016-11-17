@@ -79,7 +79,7 @@ def preprocess_text(text):
 
 # prepare text document for later conversion to bag of words
 def convert_to_doc(tweetpath):
-    pool = multiprocessing.Pool(8)
+    pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
     jobs = []
     
     for chunk_start, chunk_size in chunkify(tweetpath):
@@ -119,23 +119,26 @@ def get_doc_topics(lda, bow):
     topic_dist = gamma[0] / sum(gamma[0])
     return [(topic_id, topic_value) for topic_id, topic_value in enumerate(topic_dist)]
 
-# arg1: topology file, arg2: name of directory to create, arg3: dictionary, arg4: lda model         
-def main(arg1, arg2, arg3, arg4):
-    user_topics_dir = arg2 + '/'
+# topology: topology file, output_dir: name of directory to create, dict_loc: dictionary, lda_loc: lda model,
+# dir_prefix: prefix for subdirectories (ie community_1)
+
+# python2.7 tweets_on_LDA.py communities dnld_tweets/ user_topics_ex data/twitter/tweets.dict data/twitter/tweets_100_lem_5_pass.model community
+def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
+    user_topics_dir = output_dir + '/'
 
     # create output directories
     if not os.path.exists(os.path.dirname(user_topics_dir)):
         os.makedirs(os.path.dirname(user_topics_dir), 0o755)
 
     # load wiki dictionary
-    dictionary = corpora.Dictionary.load(arg3)
+    dictionary = corpora.Dictionary.load(dict_loc)
 
     # load trained wiki model from file
-    lda_model = models.LdaModel.load(arg4)
+    lda_model = models.LdaModel.load(lda_loc)
 
-    with open(arg1, 'r') as topology_file:
+    with open(topology, 'r') as topology_file:
         for i, community in enumerate(topology_file):
-            community_dir = user_topics_dir + 'community_' + str(i) + '/'
+            community_dir = user_topics_dir + dir_prefix + '_' + str(i) + '/'
  
             if not os.path.exists(os.path.dirname(community_dir)):
                 os.makedirs(os.path.dirname(community_dir), 0o755)
@@ -150,8 +153,8 @@ def main(arg1, arg2, arg3, arg4):
             with click.progressbar(ast.literal_eval(community), label=progress_label) as bar:
                 for user in bar:
                     user_id = str(user).strip()
-                    if os.path.exists('dnld_tweets/' + user_id):
-                        tweetpath = 'dnld_tweets/' + user_id
+                    if os.path.exists(tweets_dir + user_id):
+                        tweetpath = tweets_dir + user_id
                     else:
                         continue
                     if tmp_doc_vecs:
@@ -172,4 +175,4 @@ def main(arg1, arg2, arg3, arg4):
 	write_topn_words(user_topics_dir, lda_model)
             
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]))
+    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
