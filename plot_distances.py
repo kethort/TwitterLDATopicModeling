@@ -1040,7 +1040,7 @@ def main(user_topics_dir):
     If the LDA models were trained using lemmatization, use Python2.7 or less
 
     """
-    pool = multiprocessing.Pool(4)
+    pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
 	
     pool.map(community_user_distances, (dirs for dirs in dir_to_iter(user_topics_dir)))
 
