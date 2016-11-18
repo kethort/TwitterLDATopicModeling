@@ -51,21 +51,11 @@ def authenticate(credentials):
             status_limit = limit['resources']['statuses']['/statuses/user_timeline']['remaining']
             print(status_limit)
             if status_limit > 100:
-                print("Authentication Completed\n")
+                print("Authentication Completed")
                 return api
 
         except tweepy.TweepError as e:
-            error = e.message[0]['code']
-            # bad credentials
-            if error == 32 or error == 89:
-                #del credentials[index]
-                continue
-            elif error == 135:
-                print('System time is incorrect. Cannot authenticate you.')
-            elif error == 136:
-                print('Your account has been blacklisted from using the API')
-            else:
-                print(str(e))
+            print(e.message[0]['message'])
 
         except Exception as e:
             print(str(e))
@@ -135,26 +125,12 @@ def get_followers(user_id, api, credentials):
     followers = []
     while True:
         try:
-            # cursor = tweepy.Cursor(api.followers, id=user_id, monitor_rate_limit=True, wait_on_rate_limit=True).pages()
             cursor = tweepy.Cursor(api.followers, id=user_id).pages()
             for page in cursor:
                 followers += page
 
         except tweepy.TweepError as e:
-            error = e.message[0]['code']
-            
-            # user does not exist
-            if error == 34:
-                print('User does not exist')
-
-            # rate limit reached
-            elif error == 88 or error == 429:
-                print('Rate limit reached. Reauthenticating.')
-                api = authenticate(credentials)
-                continue
-
-            else:
-                print(str(e))
+            print(e.message[0]['message'])
 
         except Exception as e:
             print(str(e))
@@ -166,26 +142,12 @@ def get_tweets(user_id, api, credentials):
     tweets = []
     while True:
         try:
-            # cursor = tweepy.Cursor(api.user_timeline, user_id, monitor_rate_limit=True, wait_on_rate_limit=True).pages()
             cursor = tweepy.Cursor(api.user_timeline, user_id).pages()
             for page in cursor:
                 tweets += page
 
         except tweepy.TweepError as e:
-            error = e.message[0]['code']
-            
-            # user does not exist
-            if error == 34:
-                print('User does not exist')
-
-            # rate limit reached
-            elif error == 88 or error == 429:
-                print('Rate limit reached. Reauthenticating.')
-                api = authenticate(credentials)
-                continue
-
-            else:
-                print(e)
+            print(e.message[0]['message'])
 
         except Exception as e:
             print(e)
@@ -204,15 +166,8 @@ def is_active_user(api, inactive_users, active_users, user_id):
         else:
             inactive_users[str(user_id)] = user.statuses_count
 
-    except tweepy.TweepError, e:
-        error = e.message[0]['code']
-
-        # user not found or account suspended
-        if error == 50 or error == 63 or error == 34:
-            inactive_users[str(user_id)] = 0
-
-        else:
-            print(e)
+    except tweepy.TweepError as e:
+        print(e.message[0]['message'])
 
     except Exception as e:
         print(e)
@@ -230,21 +185,21 @@ def get_comm_set(filename):
 
     return comm_set
 
-def main(arg1):
+def main(topology):
     inactive_users = {}
     active_users = {}
     credentials = get_access_creds()
 
     tweets_dir = './dnld_tweets/'
 
-    comm_set = get_comm_set(str(arg1))
+    comm_set = get_comm_set(str(topology))
 
     if not os.path.exists(os.path.dirname(tweets_dir)):
         os.makedirs(os.path.dirname(tweets_dir), 0o755)
     
     while comm_set:
         user = comm_set.pop()
-        print(user)
+        print('\n' + str(user))
         
         api = authenticate(credentials)
 
