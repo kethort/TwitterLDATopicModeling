@@ -7,12 +7,12 @@ import os
 import sys
 import bz2
 import re
-import json
 import itertools
 import tarfile
 import multiprocessing
 import gensim
 from gensim.corpora import MmCorpus, Dictionary, WikiCorpus
+from gensim import models
 import pyLDAvis
 import pyLDAvis.gensim as gensimvis
 
@@ -23,9 +23,9 @@ ignore_words = set(stopwords.words('english'))
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
-def list_to_gen(tweets):
+def list_to_gen(tweets, directory):
     for filename in tweets:
-        yield filename
+        yield directory + str(filename)
 
 def preprocess_tweet(tweet):
     with open(tweet, 'r') as infile:
@@ -60,8 +60,25 @@ def build_LDA_model(corp_loc, dict_loc, num_topics, lda_loc):
     lda = gensim.models.LdaMulticore(corpus=corpus, id2word=dictionary, num_topics=int(num_topics), alpha='asymmetric', passes=5)
     lda.save(lda_loc + '.model')
 
-    vis_data = gensimvis.prepare(lda, bow_corpus, dictionary)
+def build_pyLDAvis_output(corp_loc, dict_loc, lda_loc):
+    corpus = MmCorpus(corp_loc)
+    dictionary = Dictionary.load(dict_loc)
+    lda = models.LdaModel.load(lda_loc + '.model')
+    
+    vis_data = gensimvis.prepare(lda, corpus, dictionary)
     pyLDAvis.save_html(vis_data, lda_loc + '.html')
+
+def omit_inactive_users():
+    with open('inactive_users.json', 'r') as infile:
+        inactive = json.load(infile)
+    dir_list = []
+    for path, dirs, files in os.walk(docs_loc):
+        for filename in files:
+            if not filename in inactive:
+                dir_list.append(path + filename)
+        break
+
+    return dir_list
 
 # option: text or wiki corpus selector, docs_loc: directory of text docs or location of wiki dump
 # output_corpus: name of output corpus, output_dict: name of output dictionary,
@@ -70,16 +87,11 @@ def build_LDA_model(corp_loc, dict_loc, num_topics, lda_loc):
 # python2.7 create_LDA_model.py t dnld_tweets/ tweet_corpus tweet_dict 100 lda_model
 def main(option, docs_loc, output_corpus, output_dict, num_topics, output_model):
     if option == 't':
-        with open('inactive_users.json', 'r') as infile:
-            inactive = json.load(infile)
+        if os.path.exists('inactive_users.json'):
+            dir_list = omit_inactive_users()
+        else:
+            dir_list = os.listdir(docs_loc)
         
-        dir_list = []
-        for path, dirs, files in os.walk(docs_loc):
-            for filename in files:
-                if not str(filename) in inactive:
-                    dir_list.append(path + filename)
-            break
-
         doc_corpus = Document_Corpus(dir_list)
 
         # ignore words that appear in less than 5 documents or more than 5% of documents
@@ -89,6 +101,7 @@ def main(option, docs_loc, output_corpus, output_dict, num_topics, output_model)
         tweet_corpus.dictionary.save(output_dict + '.dict')
 
         build_LDA_model(output_corpus, output_dict, num_topics, output_model)
+        build_pyLDAvis_output(output_corpus, output_dict, output_model)
 
     if option == 'w':
         wiki_corpus = WikiCorpus(docs_loc)
@@ -98,6 +111,7 @@ def main(option, docs_loc, output_corpus, output_dict, num_topics, output_model)
         wiki_corpus.dictionary.save(output_dict + '.dict')
 
         build_LDA_model(output_corpus, output_dict, num_topics, output_model)
+        build_pyLDAvis_output(output_corpus, output_dict, output_model)
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
+    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]))
