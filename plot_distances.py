@@ -2,7 +2,6 @@
 import random
 import click
 import csv
-import pickle
 import json
 import os
 import ast
@@ -21,9 +20,16 @@ from scipy.spatial import distance
 from collections import defaultdict
 from gensim import corpora, models, matutils
 
-# for each user document vector find the distance from every other user document vector
-# in the community. Dictionary <k, v>(user_id, doc_vec)
 def community_user_distances(community_dir):
+    '''
+        for each user find the distance from every other user using their document vectors
+        writes files to corresponding community directories
+
+        This method executes quickly so everytime it is run, the files that are currently in the 
+        directories are removed. 
+
+        Dictionary <k, v>(user_id, doc_vec)
+    '''
     if not os.path.exists(os.path.dirname(community_dir + '/distance_info/')):
         os.makedirs(os.path.dirname(community_dir + '/distance_info/'), 0o755)
     
@@ -39,8 +45,8 @@ def community_user_distances(community_dir):
            os.remove(outfile)
     
     # load the community document vector dictionary from file
-    with open(community_dir + '/community_doc_vecs.pickle', 'rb') as community_doc_vecs_file:
-        community_doc_vecs = pickle.load(community_doc_vecs_file)
+    with open(community_dir + '/community_doc_vecs.json', 'r') as community_doc_vecs_file:
+        community_doc_vecs = json.load(community_doc_vecs_file)
 
     print('Calculating user distances for: ' + community_dir)
     with open(cos_file, 'a') as cosfile, open(hell_file, 'a') as hellfile, open(euc_file, 'a') as eucfile, open(jen_shan_file, 'a') as jenshanfile:
@@ -51,24 +57,20 @@ def community_user_distances(community_dir):
 
             for key_2 in sorted(community_doc_vecs):
                 vec_2 = community_doc_vecs[key_2]
-                cos_dist = distance.cosine(vec_1, vec_2)
-                hel_dist = hellinger_distance(vec_1, vec_2)
-                euc_dist = distance.euclidean(vec_1, vec_2)
-                js_div = jensen_shannon_divergence(vec_1, vec_2)
-                cosfile.write('{}\t{}\t{}\n'.format(user, key_2, cos_dist))
-                hellfile.write('{}\t{}\t{}\n'.format(user, key_2, hel_dist))
-                eucfile.write('{}\t{}\t{}\n'.format(user, key_2, euc_dist))
-                jenshanfile.write('{}\t{}\t{}\n'.format(user, key_2, js_div))
+                cosfile.write('{}\t{}\t{}\n'.format(user, key_2, distance.cosine(vec_1, vec_2)))
+                hellfile.write('{}\t{}\t{}\n'.format(user, key_2, hellinger_distance(vec_1, vec_2)))
+                eucfile.write('{}\t{}\t{}\n'.format(user, key_2, distance.euclidean(vec_1, vec_2)))
+                jenshanfile.write('{}\t{}\t{}\n'.format(user, key_2, jensen_shannon_divergence(vec_1, vec_2)))
     community_average_distances(community_dir)
 
 # https://gist.github.com/larsmans/3116927
 def hellinger_distance(P, Q):
-    return distance.euclidean(np.sqrt(P), np.sqrt(Q)) / np.sqrt(2)
+    return distance.euclidean(np.sqrt(np.array(P)), np.sqrt(np.array(Q))) / np.sqrt(2)
 
 # http://stackoverflow.com/questions/15880133/jensen-shannon-distance
 def jensen_shannon_divergence(P, Q):
-    _P = P / norm(P, ord=1)
-    _Q = Q / norm(Q, ord=1)
+    _P = np.array(P) / norm(np.array(P), ord=1)
+    _Q = np.array(Q) / norm(np.array(Q), ord=1)
     _M = 0.5 * (_P + _Q)
     return 0.5 * (entropy(_P, _M) + entropy(_Q, _M))
 
@@ -80,8 +82,8 @@ def community_average_distances(community_dir):
         os.remove(community_dir + '/distance_info/community_average_distances')
     
     # load the dictionary containing the user document vectors of the community 
-    with open(community_dir + '/community_doc_vecs.pickle', 'rb') as community_doc_vecs_file:
-        community_doc_vecs = pickle.load(community_doc_vecs_file)
+    with open(community_dir + '/community_doc_vecs.json', 'r') as community_doc_vecs_file:
+        community_doc_vecs = json.load(community_doc_vecs_file)
        
     # access the distance files in the community directory
     for path, dirs, files in os.walk(community_dir + '/distance_info/'):
@@ -96,75 +98,39 @@ def community_average_distances(community_dir):
         break
 
 def user_to_internal_users_graph(community):
-    """
+    '''
 
-    creates graph displaying each user in the community comparing the cosine, euclidean,
-    hellinger and jensen shannon distances/divergences against other users in same community
+    creates graph displaying each user in the community comparing the jensen 
+    shannon divergences against other users in same community
 
     Methods used:
     > internal_graph_axes()
     > draw_scatter_graph()
 
-    """
+    '''
     # skip communities not contain any users because of earlier pre-processing
     try:
-        with open(community + '/community_doc_vecs.pickle', 'rb') as comm_doc_vecs_file:
-            comm_doc_vecs = pickle.load(comm_doc_vecs_file)
+        with open(community + '/community_doc_vecs.json', 'r') as comm_doc_vecs_file:
+            comm_doc_vecs = json.load(comm_doc_vecs_file)
     except:
         comm_doc_vecs = {}
-
-    # skip cliques/communities of size 1 or less
-    if(len(comm_doc_vecs) <= 1):
-        return
 
     fieldnames = ['user_1', 'user_2', 'distance']
 
     jsd_path = community + '/user_to_internal_users_graphs/jensen_shannon/'
-    hel_path = community + '/user_to_internal_users_graphs/hellinger/'
-    cos_path = community + '/user_to_internal_users_graphs/cosine/'
-    euc_path = community + '/user_to_internal_users_graphs/euclidean/'
 
     if not os.path.exists(os.path.dirname(jsd_path)):
         os.makedirs(os.path.dirname(jsd_path), 0o755)
-    if not os.path.exists(os.path.dirname(cos_path)):
-        os.makedirs(os.path.dirname(cos_path), 0o755)
-    if not os.path.exists(os.path.dirname(hel_path)):
-        os.makedirs(os.path.dirname(hel_path), 0o755)
-    if not os.path.exists(os.path.dirname(euc_path)):
-        os.makedirs(os.path.dirname(euc_path), 0o755)
 
     print('Drawing user to community graphs for: ' + str(community))
-    #progress_label = 'Drawing user to community graphs for: ' + str(community)
-    #with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
-    #    for user in doc_vectors:
     for user in comm_doc_vecs:
         if not os.path.exists(jsd_path + user + '.png'):
             with open(community + '/distance_info/jensen_shannon', 'r') as infile:
                 csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
                 x_axis, y_axis = internal_graph_axes(user, csv_reader, jsd_path + user)
                 draw_scatter_graph(user, 'Community users', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + 0.1), jsd_path + user)
-        if not os.path.exists(cos_path + user + '.png'):
-            with open(community + '/distance_info/cosine', 'r') as infile:
-                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-                x_axis, y_axis = internal_graph_axes(user, csv_reader, cos_path + user)
-                draw_scatter_graph(user, 'Community users', 'Cosine Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, cos_path + user)
-        if not os.path.exists(hel_path + user + '.png'):
-            with open(community + '/distance_info/hellinger', 'r') as infile:
-                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-                x_axis, y_axis = internal_graph_axes(user, csv_reader, hel_path + user)
-                draw_scatter_graph(user, 'Community users', 'Hellinger Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, hel_path + user)
-        if not os.path.exists(euc_path + user + '.png'):
-            with open(community + '/distance_info/euclidean', 'r') as infile:
-                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-                x_axis, y_axis = internal_graph_axes(user, csv_reader, euc_path + user)
-                draw_scatter_graph(user, 'Community users', 'Euclidean Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, euc_path + user)
 
 def internal_graph_axes(user, csv_reader, output_path):
-    """
-
-    returns plot points for x and y axes
-
-    """
     x = 0
     x_axis = []
     y_axis = []
@@ -181,11 +147,6 @@ def internal_graph_axes(user, csv_reader, output_path):
     return x_axis, y_axis
 
 def draw_scatter_graph(title, x_label, y_label, x_axis, y_axis, min_x, max_x, min_y, max_y, output_path):
-    """
-
-    outputs scatter graph
-
-    """
     fig = plt.figure()
     fig.suptitle(title, fontsize=14, fontweight='bold')
     ax = fig.add_subplot(111)
@@ -200,13 +161,13 @@ def draw_scatter_graph(title, x_label, y_label, x_axis, y_axis, min_x, max_x, mi
     plt.close(fig)
 
 def user_to_external_users_graph(user_topics_dir, community):
-    """
+    '''
 
-    creates graph displaying each user in the community comparing the cosine, euclidean,
-    hellinger and jensen shannon distances/divergences against randomly selected users from outside
+    creates graph displaying each user in the community comparing the 
+    jensen shannon divergences against randomly selected users from outside
     communities.
 
-    The measured distances/divergences between users is averaged over a set amount of iterations.
+    The measured divergences between users is averaged over a set amount of iterations.
 
     Methods used:
     > get_rand_users()
@@ -214,11 +175,11 @@ def user_to_external_users_graph(user_topics_dir, community):
     > jensen_shannon_divergence() from tweets_on_LDA.py
     > hellinger_distance() from tweets_on_LDA.py
 
-    """
+    '''
     NUM_ITER = 10
     try:
-        with open(community + '/community_doc_vecs.pickle', 'rb') as comm_doc_vecs_file:
-            comm_doc_vecs = pickle.load(comm_doc_vecs_file)
+        with open(community + '/community_doc_vecs.json', 'r') as comm_doc_vecs_file:
+            comm_doc_vecs = json.load(comm_doc_vecs_file)
     except:
         comm_doc_vecs = {}
 
@@ -226,22 +187,13 @@ def user_to_external_users_graph(user_topics_dir, community):
     if(len(comm_doc_vecs) <= 1):
         return
 
-    with open(user_topics_dir + '/all_community_doc_vecs.pickle', 'rb') as all_community_doc_vecs_file:
-        all_community_doc_vecs = pickle.load(all_community_doc_vecs_file)
+    with open(user_topics_dir + 'all_community_doc_vecs.json', 'r') as all_community_doc_vecs_file:
+        all_community_doc_vecs = json.load(all_community_doc_vecs_file)
 
     jsd_path = community + '/user_to_external_users_graphs/jensen_shannon/'
-    hel_path = community + '/user_to_external_users_graphs/hellinger/'
-    cos_path = community + '/user_to_external_users_graphs/cosine/'
-    euc_path = community + '/user_to_external_users_graphs/euclidean/'
 
     if not os.path.exists(os.path.dirname(jsd_path)):
         os.makedirs(os.path.dirname(jsd_path), 0o755)
-    if not os.path.exists(os.path.dirname(hel_path)):
-        os.makedirs(os.path.dirname(hel_path), 0o755)
-    if not os.path.exists(os.path.dirname(cos_path)):
-        os.makedirs(os.path.dirname(cos_path), 0o755)
-    if not os.path.exists(os.path.dirname(euc_path)):
-        os.makedirs(os.path.dirname(euc_path), 0o755)
 
     x_axis = np.arange(1, len(comm_doc_vecs))
     external_users = get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER)
@@ -249,18 +201,14 @@ def user_to_external_users_graph(user_topics_dir, community):
     fieldnames = ['user', 'rand_user', 'dist']
 
     print('Drawing user to external users graphs for: ' + str(community))
- #    progress_label = 'Drawing user to external users graphs for: ' + str(community)
- #    with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
- #       for user in doc_vectors:
     for user in comm_doc_vecs:
-        if not(os.path.exists(jsd_path + user) and os.path.exists(hel_path + user) and os.path.exists(euc_path + user) and os.path.exists(cos_path + user)):
+        if not(os.path.exists(jsd_path + user)):
             y_axis = []
             i = 0
             distances = defaultdict(lambda: [0] * (len(comm_doc_vecs) - 1))
             while(i < (len(comm_doc_vecs) - 1) * NUM_ITER):
                 for n in xrange(0, len(comm_doc_vecs) - 1):
                     # circular queue exceeds limitation of possible external community users
-                    # in get_rand_users method
                     rand_user = external_users.pop()
                     external_users.insert(0, rand_user)
                     i += 1
@@ -285,29 +233,17 @@ def user_to_external_users_graph(user_topics_dir, community):
             if not os.path.exists(jsd_path + user + '.png'):
                 draw_scatter_graph(user, 'External Users', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + .01), jsd_path + user)
             y_axis = []
-            with open(hel_path + user, 'w') as graph_numbers:
-                for dist in distances['hel']:
-                    graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
-                    y_axis.append(dist/NUM_ITER)
+            for dist in distances['hel']:
+                y_axis.append(dist/NUM_ITER)
             user_avg_dist['hel'].append(np.average(y_axis))
-            if not os.path.exists(hel_path + user + '.png'):
-                draw_scatter_graph(user, 'External Users', 'Hellinger Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, hel_path + user)
             y_axis = []
-            with open(cos_path + user, 'w') as graph_numbers:
-                for dist in distances['cos']:
-                    graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
-                    y_axis.append(dist/NUM_ITER)
+            for dist in distances['cos']:
+                y_axis.append(dist/NUM_ITER)
             user_avg_dist['cos'].append(np.average(y_axis))
-            if not os.path.exists(cos_path + user + '.png'):
-                draw_scatter_graph(user, 'External Users', 'Cosine Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, cos_path + user)
             y_axis = []
-            with open(euc_path + user, 'w') as graph_numbers:
-                for dist in distances['euc']:
-                    graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
-                    y_axis.append(dist/NUM_ITER)
+            for dist in distances['euc']:
+                y_axis.append(dist/NUM_ITER)
             user_avg_dist['euc'].append(np.average(y_axis))
-            if not os.path.exists(euc_path + user + '.png'):
-                draw_scatter_graph(user, 'External Users', 'Euclidean Distance', x_axis, y_axis, 0, len(x_axis) + 1, 0, 1, euc_path + user)
 
         else:
             distances = []
@@ -317,28 +253,6 @@ def user_to_external_users_graph(user_topics_dir, community):
                     distances.append(float(row['dist']))
             user_avg_dist['jen'].append(np.average(distances))
 
-            distances = []
-            with open(hel_path + user, 'r') as dist_file:
-                csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
-                for row in csv_reader:
-                    distances.append(float(row['dist']))
-            user_avg_dist['hel'].append(np.average(distances))
-
-            distances = []
-            with open(cos_path + user, 'r') as dist_file:
-                csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
-                for row in csv_reader:
-                    distances.append(float(row['dist']))
-            user_avg_dist['cos'].append(np.average(distances))
-
-            distances = []
-            with open(euc_path + user, 'r') as dist_file:
-                csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
-                for row in csv_reader:
-                    distances.append(float(row['dist']))
-            user_avg_dist['euc'].append(np.average(distances))
-
-    #if not(os.path.exists(community + '/distance_info/external_average_distances'):
     with open(community + '/distance_info/external_average_distances', 'w') as outfile:
         for metric in user_avg_dist:
             if(metric == 'jen'):
@@ -351,7 +265,7 @@ def user_to_external_users_graph(user_topics_dir, community):
                 outfile.write('{}\t{}\n'.format('cosine', np.average(user_avg_dist[metric])))
 
 def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
-    """
+    '''
 
     returns multiple of a list of random users not in the current users' community
 
@@ -362,7 +276,7 @@ def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
     users to compare against is limited by size of length of all users in all external
     communities.
 
-    """
+    '''
 
     max_external_users = len(all_community_doc_vecs) - len(comm_doc_vecs)
     external_users = []
@@ -374,17 +288,17 @@ def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
             return external_users
 
 def user_internal_external_distance(community):
-    """
+    '''
 
     folders and figures for user internal vs external distance graphs
 
     Methods used:
     > draw_user_internal_external_graph()
 
-    """
+    '''
     try:
-        with open(community + '/community_doc_vecs.pickle', 'rb') as comm_doc_vecs_file:
-            comm_doc_vecs = pickle.load(comm_doc_vecs_file)
+        with open(community + '/community_doc_vecs.json', 'r') as comm_doc_vecs_file:
+            comm_doc_vecs = json.load(comm_doc_vecs_file)
     except:
         comm_doc_vecs = {}
 
@@ -393,35 +307,21 @@ def user_internal_external_distance(community):
         return
 
     jsd_path = community + '/distance_difference_graphs/jensen_shannon/'
-    hel_path = community + '/distance_difference_graphs/hellinger/'
-    cos_path = community + '/distance_difference_graphs/cosine/'
-    euc_path = community + '/distance_difference_graphs/euclidean/'
 
     if not os.path.exists(os.path.dirname(jsd_path)):
         os.makedirs(os.path.dirname(jsd_path), 0o755)
-    if not os.path.exists(os.path.dirname(hel_path)):
-        os.makedirs(os.path.dirname(hel_path), 0o755)
-    if not os.path.exists(os.path.dirname(cos_path)):
-        os.makedirs(os.path.dirname(cos_path), 0o755)
-    if not os.path.exists(os.path.dirname(euc_path)):
-        os.makedirs(os.path.dirname(euc_path), 0o755)
 
     print('Drawing distance within community vs distance outside community for: ' + str(community))
-    #progress_label = 'Drawing distance within community vs distance outside community for: ' + str(community)
-    #with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
     for user in comm_doc_vecs:
         draw_user_internal_external_graph(user, jsd_path, community, 'jensen_shannon')
-        draw_user_internal_external_graph(user, hel_path, community, 'hellinger')
-        draw_user_internal_external_graph(user, cos_path, community, 'cosine')
-        draw_user_internal_external_graph(user, hel_path, community, 'euclidean')
 
 def draw_user_internal_external_graph(user, dist_path, community, metric):
-    """
+    '''
 
     user to internal against user to external distance
     graphs, puts plotted data into community directories
 
-    """
+    '''
 
     if not os.path.exists(dist_path + user + '.png'):
         y_axis = []
@@ -459,17 +359,17 @@ def draw_user_internal_external_graph(user, dist_path, community, metric):
         plt.close()
 
 def num_users_distance_range_graph(community):
-    """
+    '''
 
     directories for user to internal plus external distance graphs of community
 
     Methods used:
     > draw_num_users_distance_range_graph
 
-    """
+    '''
     try:
-        with open(community + '/community_doc_vecs.pickle', 'rb') as comm_doc_vecs_file:
-            comm_doc_vecs = pickle.load(comm_doc_vecs_file)
+        with open(community + '/community_doc_vecs.json', 'r') as comm_doc_vecs_file:
+            comm_doc_vecs = json.load(comm_doc_vecs_file)
     except:
         comm_doc_vecs = {}
 
@@ -478,26 +378,14 @@ def num_users_distance_range_graph(community):
         return
 
     jsd_path = community + '/num_users_distance_range_graphs/jensen_shannon/'
-    hel_path = community + '/num_users_distance_range_graphs/hellinger/'
-    cos_path = community + '/num_users_distance_range_graphs/cosine/'
-    euc_path = community + '/num_users_distance_range_graphs/euclidean/'
 
     if not os.path.exists(os.path.dirname(jsd_path)):
         os.makedirs(os.path.dirname(jsd_path), 0o755)
-    if not os.path.exists(os.path.dirname(hel_path)):
-        os.makedirs(os.path.dirname(hel_path), 0o755)
-    if not os.path.exists(os.path.dirname(cos_path)):
-        os.makedirs(os.path.dirname(cos_path), 0o755)
-    if not os.path.exists(os.path.dirname(euc_path)):
-        os.makedirs(os.path.dirname(euc_path), 0o755)
 
     draw_num_users_distance_range_graph(community, comm_doc_vecs, jsd_path, 'jensen_shannon')
-    draw_num_users_distance_range_graph(community, comm_doc_vecs, hel_path, 'hellinger')
-    draw_num_users_distance_range_graph(community, comm_doc_vecs, euc_path, 'euclidean')
-    draw_num_users_distance_range_graph(community, comm_doc_vecs, cos_path, 'cosine')
 
 def draw_num_users_distance_range_graph(community, comm_doc_vecs, output_dir, metric):
-    """
+    '''
 
     bar graph showing number of occurrences that users in community are distant 
     from other users in the same community 
@@ -506,38 +394,21 @@ def draw_num_users_distance_range_graph(community, comm_doc_vecs, output_dir, me
     > num_internal_users()
     > num_external_users()
 
-    """
+    '''
     internal_data = community + '/user_to_internal_users_graphs/' + metric + '/'
     external_data = community + '/user_to_external_users_graphs/' + metric + '/'
 
-    fieldnames = ['user_1', 'user_2', 'distance']
-
     print('Drawing number users as grouped ' + str(metric) + ' distance graph for: ' + str(community))
-    #progress_label = 'Drawing number users as grouped ' + str(metric) + ' distance graph for: ' + str(community)
-    #with click.progressbar(comm_doc_vecs, label=progress_label) as doc_vectors:
     for user in comm_doc_vecs:
         if not os.path.exists(output_dir + user + '.png'):
             with open(internal_data + user, 'r') as plot_file:
-                csv_reader = csv.DictReader(plot_file, delimiter='\t', fieldnames=fieldnames)
-                if metric == 'jensen_shannon':
-                    num_internal_users = get_num_users_jsd(csv_reader)
-                else:
-                    num_internal_users = get_num_users(csv_reader)
+                num_internal_users = get_num_users(plot_file, np.arange(0, 0.7, 0.1))
             with open(external_data + user, 'r') as plot_file:
-                csv_reader = csv.DictReader(plot_file, delimiter='\t', fieldnames=fieldnames)
-                if metric == 'jensen_shannon':
-                    num_external_users = get_num_users_jsd(csv_reader)
-                else:
-                    num_external_users = get_num_users(csv_reader)
+                num_external_users = get_num_users(plot_file, np.arange(0, 0.7, 0.1))
 
-            if metric == 'jensen_shannon':
-                plt.xlabel('Jensen Shannon Divergence')
-                plt.title('Internal/External Divergence Range from User: ' + str(user))
-                objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '> 0.6')
-            else:
-                plt.xlabel(str(metric).title() + ' Distance')
-                plt.title('Internal/External Distance Range from User: ' + str(user))
-                objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '[0.6, 0.7]', '[0.7, 0.8]', '[0.8, 0.9]', '> 0.9')
+            plt.xlabel('Jensen Shannon Divergence')
+            plt.title('Internal/External Divergence Range from User: ' + str(user))
+            objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '> 0.6')
 
             width = 0.4
             x_axis = np.arange(len(objects))
@@ -552,74 +423,33 @@ def draw_num_users_distance_range_graph(community, comm_doc_vecs, output_dir, me
             plt.savefig(output_dir + user)
             plt.close()
 
-def get_num_users(csv_reader):
-    """
+def get_num_users(input_file, distance_range):
+    '''
 
-    list of integers represent distances that fall within a set of ranges
-    for hellinger, cosine and euclidean metrics
-
-    """
-    distance = grp_1 = grp_2 = grp_3 = grp_4 = grp_5 = grp_6 = grp_7 = grp_8 = grp_9 = grp_10 = 0
-
-    for row in csv_reader:
-        distance = float(row['distance'])
-
-        if(distance >= 0 and distance < 0.1):
-            grp_1 += 1
-        elif(distance >= 0.1 and distance < 0.2):
-            grp_2 += 1
-        elif(distance >= 0.2 and distance < 0.3):
-            grp_3 += 1
-        elif(distance >= 0.3 and distance < 0.4):
-            grp_4 += 1
-        elif(distance >= 0.4 and distance < 0.5):
-            grp_5 += 1
-        elif(distance >= 0.5 and distance < 0.6):
-            grp_6 += 1
-        elif(distance >= 0.6 and distance < 0.7):
-            grp_7 += 1
-        elif(distance >= 0.7 and distance < 0.8):
-            grp_8 += 1
-        elif(distance >= 0.8 and distance < 0.9):
-            grp_9 += 1
-        elif(distance >= 0.9):
-            grp_10 += 1
-
-    num_users = (grp_1, grp_2, grp_3, grp_4, grp_5, grp_6, grp_7, grp_8, grp_9, grp_10)
-    return num_users
-
-def get_num_users_jsd(csv_reader):
-    """
-
-    list of integers showing divergences that within a set of ranges
+    list of integers showing divergences that fall within a set of ranges
     jensen shannon 
 
-    """
-    distance = grp_1 = grp_2 = grp_3 = grp_4 = grp_5 = grp_6 = grp_7 = 0
+    '''
+    fieldnames = ['user_1', 'user_2', 'distance']
 
-    for row in csv_reader:
-        distance = float(row['distance'])
+    csv_reader = csv.DictReader(input_file, delimiter='\t', fieldnames=fieldnames)
 
-        if(distance >= 0 and distance < 0.1):
-            grp_1 += 1
-        elif(distance >= 0.1 and distance < 0.2):
-            grp_2 += 1
-        elif(distance >= 0.2 and distance < 0.3):
-            grp_3 += 1
-        elif(distance >= 0.3 and distance < 0.4):
-            grp_4 += 1
-        elif(distance >= 0.4 and distance < 0.5):
-            grp_5 += 1
-        elif(distance >= 0.5 and distance < 0.6):
-            grp_6 += 1
-        elif(distance >= 0.6):
-            grp_7 += 1
+    y_vals = [0] * len(distance_range)
+    for i in range(0, len(distance_range)):
+        for row in csv_reader:
+            distance = float(row['distance'])
+            if(i == len(distance_range) - 1):
+                if(distance >= distance_range[i]):
+                    y_vals[i] += 1
+            else:
+                if(distance >= distance_range[i] and distance < distance_range[i + 1]):
+                    y_vals[i] += 1
+        input_file.seek(0)
 
-    num_users = (grp_1, grp_2, grp_3, grp_4, grp_5, grp_6, grp_7)
-    return num_users
+    return y_vals 
 
 def community_average_internal_external_distance(user_topics_dir):
-    """
+    '''
 
     graphs displaying average internal vs average external distances
     for communities and cliques
@@ -627,7 +457,7 @@ def community_average_internal_external_distance(user_topics_dir):
     Methods used:
     > community_clique_average_axes()
 
-    """
+    '''
     dist_dirs = []
     clq_dists = defaultdict(list)
     comm_dists = defaultdict(list)
@@ -677,13 +507,13 @@ def community_average_internal_external_distance(user_topics_dir):
     plt.close()
 
 def community_clique_average_axes(dist_dirs, filename):
-    """
+    '''
 
     two lists one with the coordinates for the y axis of the
     average distances for a clique and the other for a community.
 
 
-    """
+    '''
     fieldnames = ['metric', 'distance']
 
     clq_y_axis = []
@@ -701,7 +531,7 @@ def community_clique_average_axes(dist_dirs, filename):
     return clq_y_axis, comm_y_axis
 
 def average_similarity_clique_community_size_graph(user_topics_dir):
-    """
+    '''
 
     graph displaying the average distances compared to community size
     sets up the axes for drawing other graphs
@@ -714,7 +544,7 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
     > draw_num_clq_comm_int_range_graph()
     > distributed_average_similarity_clique_community_size_graph()
 
-    """
+    '''
     clq_x_axis = []
     clq_y_axis = []
     comm_x_axis = []
@@ -731,8 +561,8 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
 
     for path, dirs, files in os.walk(user_topics_dir):
         for community in sorted(dirs):
-            with open(path + community + '/community_doc_vecs.pickle', 'rb') as comm_doc_vecs_file:
-                comm_doc_vecs = pickle.load(comm_doc_vecs_file)
+            with open(path + community + '/community_doc_vecs.json', 'r') as comm_doc_vecs_file:
+                comm_doc_vecs = json.load(comm_doc_vecs_file)
 
             with open(path + community + '/distance_info/community_average_distances', 'r') as avg_dist_file:
                 csv_reader = csv.DictReader(avg_dist_file, delimiter='\t', fieldnames=fieldnames)
@@ -747,10 +577,6 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
                             comm_divs[len(comm_doc_vecs)].append(float(row['distance']))
                             comm_y_axis.append(float(row['distance']))
                             comm_x_axis.append(len(comm_doc_vecs))
-                            #if(len(comm_doc_vecs) <= 40):
-                            #    comm_divs[len(comm_doc_vecs)].append(float(row['distance']))
-                            #    comm_y_axis.append(float(row['distance']))
-                            #    comm_x_axis.append(len(comm_doc_vecs))
                             int_comm_dists_range = get_num_communities_jsd(float(row['distance']), int_comm_dists_range)
 
             with open(path + community + '/distance_info/external_average_distances', 'r') as ext_dist_file:
@@ -772,7 +598,6 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
         plt.ylabel('Average Jensen Shannon divergence')
         plt.xlabel('Size of Community')
         plt.title('Average Community Similarity')
-        #output_path = user_topics_dir + 'community_size_average_divergence_zoomed'
         output_path = user_topics_dir + 'community_size_average_divergence'
         plt.scatter(comm_x_axis, comm_y_axis)
         plt.ylim([0, np.log(2) + .001])
@@ -793,14 +618,14 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
         break # restrict depth of folder traversal to 1
 
 def draw_num_communities_range_graph(user_topics_dir, int_clq, ext_clq, int_comm, ext_comm):
-    """
+    '''
 
     graph displaying internal and external distribution for average distances/divergences
     for all communities and cliques in dataset
 
     ** currently only displays results for jensen shannon divergence
 
-    """
+    '''
     width = 0.2
     fig, ax = plt.subplots()
     objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '> 0.6')
@@ -822,12 +647,12 @@ def draw_num_communities_range_graph(user_topics_dir, int_clq, ext_clq, int_comm
     plt.close(fig)
 
 def get_num_communities_jsd(distance, avg_dists_range):
-    """
+    '''
 
     list of integers showing the amount of cliques/communities whose
     average distances/divergences fall within a set of ranges
 
-    """
+    '''
     grp_1 = grp_2 = grp_3 = grp_4 = grp_5 = grp_6 = grp_7 = 0
     if(distance >= 0 and distance < 0.1):
         grp_1 += 1
@@ -848,14 +673,14 @@ def get_num_communities_jsd(distance, avg_dists_range):
     return np.sum([num_users, avg_dists_range], axis=0)
 
 def draw_num_clq_comm_int_range_graph(user_topics_dir, dists_1, dists_2, title, lg_lbl_1, lg_lbl_2, out_name):
-    """
+    '''
 
     graph displaying difference in distribution of internal average clique vs average community
     distances/divergences which fall into set of ranges
 
     ** currently only displays distribution for jensen shannon divergence 
 
-    """
+    '''
     width = 0.3
     fig, ax = plt.subplots()
     objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '> 0.6')
@@ -875,14 +700,14 @@ def draw_num_clq_comm_int_range_graph(user_topics_dir, dists_1, dists_2, title, 
     plt.close(fig)
 
 def distributed_average_similarity_clique_community_size_graph(user_topics_dir, clq_divs, comm_divs):
-    """
+    '''
 
     graph displays the average of the internal clique and internal
     community average distance/divergence compared to the size of the clique or community
 
     ** currently only displays the jensen shannon divergence
 
-    """
+    ''' 
     clq_x_axis = []
     clq_y_axis = []
     comm_x_axis = []
@@ -901,7 +726,6 @@ def distributed_average_similarity_clique_community_size_graph(user_topics_dir, 
         comm_x_axis.append(comm_size)
         comm_y_axis.append(np.mean(comm_divs[comm_size]))
 
-    #output_path = user_topics_dir + 'clique_community_size_distributed_average_divergence_zoomed'
     output_path = user_topics_dir + 'clique_community_size_distributed_average_divergence'
     plt.scatter(clq_x_axis, clq_y_axis, marker='x', color='g')
     plt.scatter(comm_x_axis, comm_y_axis, marker='.', color='b')
@@ -939,90 +763,55 @@ def user_topic_distribution(community_dir):
     if not os.path.exists(os.path.dirname(output_path)):
     	os.makedirs(os.path.dirname(output_path), 0o755)
 
-    with open(community_dir + '/community_doc_vecs.pickle', 'rb') as infile:
-        comm_doc_vecs = pickle.load(infile)
+    with open(community_dir + '/community_doc_vecs.json', 'r') as infile:
+        comm_doc_vecs = json.load(infile)
 
     for user in comm_doc_vecs:
         draw_topic_distribution_graph(comm_doc_vecs, user, output_path)
 
-def delete_inactive_communities(user_topics_dir):
+def delete_inactive_communities(community):
     '''
 
     deletes clique and corresponding community directories with 1 or less 
     active users
 
     '''
-    for path, dirs, files in os.walk(user_topics_dir):
-        for community in dirs:
-            #print(path + community)
-            try:
-                with open(path + community + '/community_doc_vecs.pickle', 'rb') as comm_doc_vecs_file:
-                    comm_doc_vecs = pickle.load(comm_doc_vecs_file)
-            except:
-                comm_doc_vecs = {}
-            if len(comm_doc_vecs) <= 1:
-                if os.path.exists(path + community):
-                    print('removing: ' + str(community))
-                    shutil.rmtree(path + community)
-                if os.path.exists(path + community.replace('clique', 'community')):
-                    shutil.rmtree(path + community.replace('clique', 'community'))
-        break
-
-def delete_inactive_users(user_topics_dir, community, users_to_delete):
-    '''
-
-    removes users from serialized community document vector dictionaries
-
-    '''
     try:
-        with open(user_topics_dir + community + '/community_doc_vecs.pickle', 'rb') as comm_doc_vecs_file:
-            comm_doc_vecs = pickle.load(comm_doc_vecs_file)
+        with open(community + '/community_doc_vecs.json', 'r') as comm_doc_vecs_file:
+            comm_doc_vecs = json.load(comm_doc_vecs_file)
     except:
         comm_doc_vecs = {}
 
-    for user in users_to_delete:
-        try:
+    if len(comm_doc_vecs) <= 1:
+        if os.path.exists(community):
+            print('removing: ' + str(community))
+            shutil.rmtree(community)
+        if os.path.exists(community.replace('clique', 'community')):
+            shutil.rmtree(community.replace('clique', 'community'))
+
+def delete_inactive_users(community):
+    '''
+
+    removes users from serialized community document vector dictionaries
+    if the amount of times they tweeted is less than 10
+
+    '''
+    try:
+        with open(community + '/community_doc_vecs.json', 'r') as comm_doc_vecs_file:
+            comm_doc_vecs = json.load(comm_doc_vecs_file)
+    except:
+        comm_doc_vecs = {}
+
+    for user in comm_doc_vecs.copy():
+        count = 0
+        with open('dnld_tweets/' + user, 'r') as tweet_file:
+            count = sum(1 for line in tweet_file if line.strip())
+        if(count < 10):
             del comm_doc_vecs[user]
-        except KeyError:
-            pass
-
-    with open(user_topics_dir + community + '/community_doc_vecs.pickle', 'wb') as comm_doc_vecs_file:
-        pickle.dump(comm_doc_vecs, comm_doc_vecs_file, -1)
+          
+    with open(community + '/community_doc_vecs.json', 'w') as comm_doc_vecs_file:
+        json.dump(comm_doc_vecs, comm_doc_vecs_file, sort_keys=True, indent=4)
     
-def remove_users_less_than_n_tweets(n, user_topics_dir):
-    """
-    
-    removes users whose total tweets in timeline are less than size n 
-
-    undo the changes done from this method, use revert_to_downloaded_state() in utils.py
-
-    to rebuild all_community_doc_vecs.pickle, delete the original file and run
-    combine_vector_dictionaries() in tweets_on_LDA.py for all communities
-
-    """
-    if not os.path.exists(os.path.dirname('tweets_dir/')):
-        os.makedirs(os.path.dirname('tweets_dir/'), 0o755)
-
-    for path, dirs, files in os.walk('tweets/'):
-        for community in dirs:
-            users_to_delete = []
-            for tweet in os.listdir(path + community):
-                count = 0
-                # backup the tweets in one directory to be able to reverse these changes 
-                # if necessary later
-                if not os.path.exists('tweets_dir/' + tweet):
-                    copyfile(path + community + '/' + tweet, 'tweets_dir/' + tweet)
-                with open(path + community + '/' + tweet, 'r') as infile:
-                    for line in infile:
-                        if line.strip():
-                            count += 1
-                # if user tweeted less than n times delete the user from results
-                if(count < n):
-                    users_to_delete.append(tweet)
-                    os.remove(path + community + '/' + tweet)
-            if users_to_delete:
-                delete_inactive_users(user_topics_dir, community, users_to_delete)
-
 def dir_to_iter(user_topics_dir):
      for path, dirs, files in os.walk(user_topics_dir):
          for community in sorted(dirs):
@@ -1030,35 +819,32 @@ def dir_to_iter(user_topics_dir):
          break
 
 def main(user_topics_dir):
-    """
+    '''
     argument for program should be user_topics_dir location
-    and number of cpu processes to spawn(usually 1 less than cores available)
     
     example:
-        - python plot_distances.py user_topics_75
+        - python plot_distances.py user_topics_75/
 
-    If the LDA models were trained using lemmatization, use Python2.7 or less
-
-    """
+    '''
     pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
 	
-    pool.map(community_user_distances, (dirs for dirs in dir_to_iter(user_topics_dir)))
+    pool.map(delete_inactive_users, dir_to_iter(user_topics_dir))
+    pool.map(delete_inactive_communities, dir_to_iter(user_topics_dir))
 
-    pool.map(user_to_internal_users_graph, (dirs for dirs in dir_to_iter(user_topics_dir))) 
- 
+    pool.map(community_user_distances, dir_to_iter(user_topics_dir))
+
+    pool.map(user_to_internal_users_graph, dir_to_iter(user_topics_dir)) 
+
     func = partial(user_to_external_users_graph, user_topics_dir)
-    pool.map(func, (dirs for dirs in dir_to_iter(user_topics_dir)))
+    pool.map(func, dir_to_iter(user_topics_dir))
  
-    pool.map(user_internal_external_distance, (dirs for dirs in dir_to_iter(user_topics_dir)))
+    pool.map(user_internal_external_distance, dir_to_iter(user_topics_dir))
 
-    pool.map(num_users_distance_range_graph, (dirs for dirs in dir_to_iter(user_topics_dir)))
+    pool.map(num_users_distance_range_graph, dir_to_iter(user_topics_dir))
 
-    pool.map(user_topic_distribution, (dirs for dirs in dir_to_iter(user_topics_dir)))
+    pool.map(user_topic_distribution, dir_to_iter(user_topics_dir))
 
     pool.terminate()
-    
-    remove_users_less_than_n_tweets(5, user_topics_dir)
-    delete_inactive_communities(user_topics_dir)
  
     community_average_internal_external_distance(user_topics_dir)
     average_similarity_clique_community_size_graph(user_topics_dir)
