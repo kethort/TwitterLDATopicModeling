@@ -148,3 +148,32 @@ def convert_pickle_to_json(user_topics_dir, community):
             comm_doc_vecs[user] = comm_doc_vecs[user].tolist()
         with open(community + '/community_doc_vecs.json', 'w') as json_dump:
             json.dump(comm_doc_vecs, json_dump, sort_keys=True, indent=4)
+
+# https://stackoverflow.com/questions/13249415/can-i-implement-custom-indentation-for-pretty-printing-in-python-s-json-module
+class MyJSONEncoder(json.JSONEncoder):
+  def iterencode(self, o, _one_shot=False):
+    list_lvl = 0
+    for s in super(MyJSONEncoder, self).iterencode(o, _one_shot=_one_shot):
+      if s.startswith('['):
+        list_lvl += 1
+        s = s.replace('\n', '').rstrip()
+      elif 0 < list_lvl:
+        s = s.replace('\n', '')
+        if s and s[-1] == ',':
+          s = s[:-1] + self.item_separator
+        elif s and s[-1] == ':':
+          s = s[:-1] + self.key_separator
+      if s.endswith(']'):
+        list_lvl -= 1
+      yield s
+
+def serialize_json(json_filepath):
+    try:
+    	with open(json_filepath, 'r') as infile:
+    	    all_docs = json.load(infile)
+    except:
+    	all_docs = {}
+    
+    if all_docs:
+        with open(json_filepath, 'w') as outfile:
+        json.dump(all_docs, outfile, cls=MyJSONEncoder, sort_keys=True, indent=2)
