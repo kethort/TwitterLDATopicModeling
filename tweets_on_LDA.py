@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+import time
+import click
+import csv
 import numpy as np
 import gensim
 from gensim import utils, corpora, models
@@ -35,9 +38,35 @@ def combine_vector_dictionaries(user_topics_dir, community_doc_vecs):
     with open(user_topics_dir + 'all_community_doc_vecs.json', 'w') as all_community_doc_vecs_file:
         json.dump(all_community_doc_vecs, all_community_doc_vecs_file, sort_keys=True, indent=4)
 
-def preprocess_text(tweetpath):
-    with open(tweetpath, 'r') as infile:
-        text = ' '.join(line.rstrip('\n') for line in infile)
+# http://www.blopig.com/blog/2016/08/processing-large-files-using-python/
+def process_wrapper(tweetpath, chunk_start, chunk_size):
+    with open(tweetpath) as f:
+        output = []
+        f.seek(chunk_start)
+        lines = f.read(chunk_size).splitlines()
+        
+        for line in lines:
+            output.append(preprocess_text(line))
+
+        return [item for sublist in output for item in sublist]
+
+def chunkify(fname, size=1024*1024):
+    file_end = os.path.getsize(fname)
+    
+    with open(fname, 'r') as f:
+        chunk_end = f.tell()
+    
+        while True:
+            chunk_start = chunk_end
+            f.seek(size, 1)
+            f.readline()
+            chunk_end = f.tell()
+            yield chunk_start, (chunk_end - chunk_start)
+            
+            if chunk_end > file_end:
+                break
+
+def preprocess_text(text):
     # remove emoji's and links from tweets
     # http://stackoverflow.com/questions/26568722/remove-unicode-emoji-using-re-in-python
     try:
@@ -86,7 +115,7 @@ def get_user_document_vectors(inputs, user_id):
         all_community_doc_vecs = {}
 
     if not user_id in all_community_doc_vecs:
-        document = preprocess_text(tweetpath)
+        document = convert_to_doc(tweetpath)
 
         # create bag of words from input document
         doc_bow = dictionary.doc2bow(document)
@@ -115,6 +144,7 @@ def users_to_iter(community):
 
 # python2.7 tweets_on_LDA.py communities user_topics_ex data/twitter/tweets.dict data/twitter/tweets_100_lem_5_pass.model community
 def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
+    start_time = time.time()
     user_topics_dir = output_dir + '/'
 
     # create output directories
@@ -151,6 +181,7 @@ def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
                 json.dump(community_doc_vecs, community_doc_vecs_file, sort_keys=True, indent=4)
 
 	write_topn_words(user_topics_dir, lda_model)
-            
+        print(time.time() - start_time)
+
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
