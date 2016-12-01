@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-import time
-import click
-import csv
 import numpy as np
+import time
 import gensim
 from gensim import utils, corpora, models
 import json
@@ -28,6 +26,7 @@ def write_topn_words(user_topics_dir, lda_model):
                 outfile.write('\n')	
 
 def combine_vector_dictionaries(user_topics_dir, community_doc_vecs):
+    print('Combining dictionaries do not exit the program')
     try:
         with open(user_topics_dir + 'all_community_doc_vecs.json', 'r') as all_community_file:
             all_community_doc_vecs = json.load(all_community_file)
@@ -66,20 +65,6 @@ def chunkify(fname, size=1024*1024):
             if chunk_end > file_end:
                 break
 
-def preprocess_text(text):
-    # remove emoji's and links from tweets
-    # http://stackoverflow.com/questions/26568722/remove-unicode-emoji-using-re-in-python
-    try:
-        reg_ex = re.compile(u'([\U0001F300-\U0001F64F])|([\U0001F680-\U0001F6FF])|([\U00002600-\U000027BF])')
-    except:
-        reg_ex = re.compile(u'([\u2600-\u27BF])|([\uD83C][\uDF00-\uDFFF])|([\uD83D][\uDC00-\uDE4F])|([\uD83D][\uDE80-\uDEFF])')
-    text = reg_ex.sub('', text)
-    # http://stackoverflow.com/questions/11331982/how-to-remove-any-url-within-a-string-in-python
-    text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', text)
-    text = re.sub(r'[^\w]', ' ', text) # remove hashtag
-    #return list(utils.simple_preprocess(text, deacc=True, min_len=2, max_len=15))
-    return utils.lemmatize(text)
-
 # prepare text document for later conversion to bag of words
 def convert_to_doc(tweetpath):
     pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
@@ -95,12 +80,27 @@ def convert_to_doc(tweetpath):
     pool.close()
     return document
 
-def get_user_document_vectors(inputs, user_id):
-    community_dir = inputs[0]
-    tweets_dir = inputs[1]
-    user_topics_dir = inputs[2]
-    dictionary = inputs[3]
-    lda_model = inputs[4]
+def preprocess_text(tweetpath):
+    with open(tweetpath, 'r') as infile:
+        text = ' '.join(line.rstrip('\n') for line in infile)
+    # remove emoji's and links from tweets
+    # http://stackoverflow.com/questions/26568722/remove-unicode-emoji-using-re-in-python
+    try:
+        reg_ex = re.compile(u'([\U0001F300-\U0001F64F])|([\U0001F680-\U0001F6FF])|([\U00002600-\U000027BF])')
+    except:
+        reg_ex = re.compile(u'([\u2600-\u27BF])|([\uD83C][\uDF00-\uDFFF])|([\uD83D][\uDC00-\uDE4F])|([\uD83D][\uDE80-\uDEFF])')
+    text = reg_ex.sub('', text)
+    # http://stackoverflow.com/questions/11331982/how-to-remove-any-url-within-a-string-in-python
+    text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', text)
+    text = re.sub(r'[^\w]', ' ', text) # remove hashtag
+    #return list(utils.simple_preprocess(text, deacc=True, min_len=2, max_len=15))
+    return utils.lemmatize(text)
+
+def get_document_vectors(inputs, user_id):
+    tweets_dir = inputs[0]
+    all_community_doc_vecs = inputs[1]
+    dictionary = inputs[2]
+    lda_model = inputs[3]
 
     user_id = str(user_id).strip()
     if os.path.exists(tweets_dir + user_id):
@@ -108,14 +108,12 @@ def get_user_document_vectors(inputs, user_id):
     else:
         return
 
-    try:
-        with open(user_topics_dir + 'all_community_doc_vecs.json', 'r') as all_community_file:
-            all_community_doc_vecs = json.load(all_community_file)
-    except:
-        all_community_doc_vecs = {}
-
     if not user_id in all_community_doc_vecs:
-        document = convert_to_doc(tweetpath)
+        document = preprocess_text(tweetpath)
+
+        # if after preprocessing the list is empty then skip that user
+        if not document:
+            return
 
         # create bag of words from input document
         doc_bow = dictionary.doc2bow(document)
@@ -144,7 +142,6 @@ def users_to_iter(community):
 
 # python2.7 tweets_on_LDA.py communities user_topics_ex data/twitter/tweets.dict data/twitter/tweets_100_lem_5_pass.model community
 def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
-    start_time = time.time()
     user_topics_dir = output_dir + '/'
 
     # create output directories
@@ -159,6 +156,12 @@ def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
 
     with open(topology, 'r') as topology_file:
         for i, community in enumerate(topology_file):
+            try:
+                with open(user_topics_dir + 'all_community_doc_vecs.json', 'r') as all_community_file:
+                    all_community_doc_vecs = json.load(all_community_file)
+            except:
+                all_community_doc_vecs = {}
+
             community_dir = user_topics_dir + dir_prefix + '_' + str(i) + '/'
  
             if not os.path.exists(os.path.dirname(community_dir)):
@@ -168,10 +171,10 @@ def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
 
             community_doc_vecs = {}
             pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
-            func = partial(get_user_document_vectors, (community_dir, tweets_dir, user_topics_dir, dictionary, lda_model))
-            doc_vecs = pool.imap(func, users_to_iter(community))
+            func = partial(get_document_vectors, (tweets_dir, all_community_doc_vecs, dictionary, lda_model))
+            doc_vecs = pool.map(func, users_to_iter(community))
             doc_vecs = [item for item in doc_vecs if item is not None]
-            pool.terminate()
+            pool.close()
             community_doc_vecs = dict(doc_vecs)
  
             combine_vector_dictionaries(user_topics_dir, community_doc_vecs)
@@ -181,7 +184,6 @@ def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
                 json.dump(community_doc_vecs, community_doc_vecs_file, sort_keys=True, indent=4)
 
 	write_topn_words(user_topics_dir, lda_model)
-        print(time.time() - start_time)
-
+            
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
