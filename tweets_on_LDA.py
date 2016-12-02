@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-import time
 import gensim
 from gensim import utils, corpora, models
 import json
@@ -26,7 +25,6 @@ def write_topn_words(user_topics_dir, lda_model):
                 outfile.write('\n')	
 
 def combine_vector_dictionaries(user_topics_dir, community_doc_vecs):
-    print('Combining dictionaries do not exit the program')
     try:
         with open(user_topics_dir + 'all_community_doc_vecs.json', 'r') as all_community_file:
             all_community_doc_vecs = json.load(all_community_file)
@@ -36,49 +34,6 @@ def combine_vector_dictionaries(user_topics_dir, community_doc_vecs):
     all_community_doc_vecs.update(community_doc_vecs)
     with open(user_topics_dir + 'all_community_doc_vecs.json', 'w') as all_community_doc_vecs_file:
         json.dump(all_community_doc_vecs, all_community_doc_vecs_file, sort_keys=True, indent=4)
-
-# http://www.blopig.com/blog/2016/08/processing-large-files-using-python/
-def process_wrapper(tweetpath, chunk_start, chunk_size):
-    with open(tweetpath) as f:
-        output = []
-        f.seek(chunk_start)
-        lines = f.read(chunk_size).splitlines()
-        
-        for line in lines:
-            output.append(preprocess_text(line))
-
-        return [item for sublist in output for item in sublist]
-
-def chunkify(fname, size=1024*1024):
-    file_end = os.path.getsize(fname)
-    
-    with open(fname, 'r') as f:
-        chunk_end = f.tell()
-    
-        while True:
-            chunk_start = chunk_end
-            f.seek(size, 1)
-            f.readline()
-            chunk_end = f.tell()
-            yield chunk_start, (chunk_end - chunk_start)
-            
-            if chunk_end > file_end:
-                break
-
-# prepare text document for later conversion to bag of words
-def convert_to_doc(tweetpath):
-    pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
-    jobs = []
-    
-    for chunk_start, chunk_size in chunkify(tweetpath):
-        func = partial(process_wrapper, tweetpath)
-        jobs.append(pool.apply_async(func, (chunk_start, chunk_size)))
-
-    document = [job.get() for job in jobs]
-    document = [item for sublist in document for item in sublist]
-
-    pool.close()
-    return document
 
 def preprocess_text(tweetpath):
     with open(tweetpath, 'r') as infile:
@@ -102,7 +57,9 @@ def get_document_vectors(inputs, user_id):
     dictionary = inputs[2]
     lda_model = inputs[3]
 
-    user_id = str(user_id).strip()
+    if 'clique' in user_id:
+        print('Getting document vectors for: ' + user_id)
+
     if os.path.exists(tweets_dir + user_id):
         tweetpath = tweets_dir + user_id
     else:
@@ -135,7 +92,7 @@ def get_doc_topics(lda, bow):
 
 def users_to_iter(community):
     for user in ast.literal_eval(community):
-        yield user
+        yield str(user)
 
 # topology: topology file, output_dir: name of directory to create, dict_loc: dictionary, lda_loc: lda model,
 # dir_prefix: prefix for subdirectories (ie community_1)
@@ -154,6 +111,8 @@ def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
     # load trained wiki model from file
     lda_model = models.LdaModel.load(lda_loc)
 
+    write_topn_words(user_topics_dir, lda_model)
+
     with open(topology, 'r') as topology_file:
         for i, community in enumerate(topology_file):
             try:
@@ -166,9 +125,9 @@ def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
  
             if not os.path.exists(os.path.dirname(community_dir)):
                 os.makedirs(os.path.dirname(community_dir), 0o755)
-             
-            print('Getting document vectors for community: ' + str(i))
 
+            print('Getting document vectors for %s %s ' % (dir_prefix, i))
+             
             community_doc_vecs = {}
             pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
             func = partial(get_document_vectors, (tweets_dir, all_community_doc_vecs, dictionary, lda_model))
@@ -183,7 +142,5 @@ def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
             with open(community_dir + '/community_doc_vecs.json', 'w') as community_doc_vecs_file:
                 json.dump(community_doc_vecs, community_doc_vecs_file, sort_keys=True, indent=4)
 
-	write_topn_words(user_topics_dir, lda_model)
-            
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
