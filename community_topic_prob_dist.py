@@ -34,7 +34,12 @@ def draw_dist_graph(inputs, clique_name):
         y_axis = []
         x_axis = []
                         
-        for topic_id, dist in enumerate(doc_vecs[clique_name]):
+        try:
+            doc_vector = doc_vecs[clique_name]
+        except KeyError:
+            return
+
+        for topic_id, dist in enumerate(doc_vector):
             x_axis.append(topic_id + 1)
             y_axis.append(dist)
 
@@ -63,7 +68,6 @@ def draw_user_to_clique_graphs(distance_dir, dist_file):
                 y_axis.append(float(row['distance']))
 
         plt.bar(np.arange(1, len(x_axis) + 1, 1), y_axis, width=1, align='center', color='r')
-        #plt.plot(np.arange(1, len(x_axis) + 1, 1), y_axis, 'o', color='r')
         plt.xlabel('Community Users')
         plt.ylabel('Divergence from Clique')
         plt.title('Users to Clique ' + dist_file, fontsize=14, fontweight='bold')
@@ -97,7 +101,7 @@ def main(clique_top, comm_top, tweets_dir, dict_loc, lda_loc, user_topics_dir):
     # load trained wiki model from file
     lda = models.LdaModel.load(lda_loc)
 
-    output_dir = 'aggregated_tweets_2/'
+    output_dir = 'aggregated_tweets/'
 
     if not os.path.exists(os.path.dirname(output_dir)):
         os.makedirs(os.path.dirname(output_dir), 0o755)
@@ -126,7 +130,7 @@ def main(clique_top, comm_top, tweets_dir, dict_loc, lda_loc, user_topics_dir):
     doc_vecs = [item for item in doc_vecs if item is not None]
     clique_vecs.update(dict(doc_vecs))
 
-    with open(output_dir + user_topics_dir + 'document_vectors.json', 'w') as outfile:
+    with open(output_dir + user_topics_dir + 'all_clique_doc_vecs.json', 'w') as outfile:
         json.dump(clique_vecs, outfile, sort_keys=True, indent=4)
  
     func = partial(draw_dist_graph, (output_dir + user_topics_dir + 'distribution_graphs/', clique_vecs))
@@ -148,8 +152,11 @@ def main(clique_top, comm_top, tweets_dir, dict_loc, lda_loc, user_topics_dir):
             print('Writing Jensen Shannon divergences for community ' + str(i))
             with open(output_dir + user_topics_dir + 'community_user_distances/community_' + str(i), 'w') as outfile:
                 for user in doc_vecs:
-                    jsd = pltd.jensen_shannon_divergence(clique_vecs['clique_' + str(i)], doc_vecs[user])
-                    outfile.write('{}\t{}\t{}\n'.format(user, 'clique', jsd))
+                    try:
+                        jsd = pltd.jensen_shannon_divergence(clique_vecs['clique_' + str(i)], doc_vecs[user])
+                        outfile.write('{}\t{}\t{}\n'.format(user, 'clique', jsd))
+                    except:
+                        continue
 
     distance_dir = output_dir + user_topics_dir + 'community_user_distances/'
     func = partial(draw_user_to_clique_graphs, distance_dir)
