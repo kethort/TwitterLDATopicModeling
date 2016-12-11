@@ -1,10 +1,19 @@
 import copy
 import gensim
+from gensim import models
+import shelve
 import numpy as np
 import matplotlib.pyplot as plt
 import json
-import pickle
+import os
 import ast
+import sys
+import random
+import click
+import csv
+import pickle
+import shutil
+from shutil import copyfile
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -46,6 +55,92 @@ def get_topic_coherence():
 	lda = LdaModel.load('./data/at_100_lem_5_pass_2.model')
 	cm = CoherenceModel(model=lda, corpus=corpus, dictionary=dictionary, coherence='u_mass')
 	print(cm.get_coherence())
+
+
+def write_overall_average_divergence_per_model(user_topics_dir, lda_loc):
+    # write overall internal & external average community distance for each topic model
+    # file format: num_topics, avg_int_dist, avg_ext_dist
+    print('Writing overall internal & external average community distance for each topic model')
+    lda = models.LdaModel.load(lda_loc)
+	clique_int_dists = []
+    clique_ext_dists = []
+    comm_int_dists = []
+    comm_ext_dists = []
+    fieldnames = ['metric', 'distance']
+    for path, dirs, files in os.walk(user_topics_dir):
+        for community in dirs:
+            with open(path + community + '/distance_info/community_average_distances', 'r') as infile:
+                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+                if 'clique' in community:
+                    clique_int_dists += [float(row['distance']) for row in csv_reader if row['metric'] == 'jensen_shannon' and row['distance']]
+                else:
+                    comm_int_dists += [float(row['distance']) for row in csv_reader if row['metric'] == 'jensen_shannon' and row['distance']]
+
+            with open(path + community + '/distance_info/external_average_distances', 'r') as infile:
+                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+                if 'clique' in community:
+                    clique_ext_dists += [float(row['distance']) for row in csv_reader if row['metric'] == 'jensen_shannon' and row['distance']]
+                else:
+                    comm_ext_dists += [float(row['distance']) for row in csv_reader if row['metric'] == 'jensen_shannon' and row['distance']]
+        break
+
+    if 'twitter' in user_topics_dir:
+        with open('twitter_num_topics_divergence', 'a') as outfile:
+            outfile.write('{}\t{}\t{}\t{}\t{}\n'.format(lda.num_topics, np.average(clique_int_dists), np.average(clique_ext_dists), np.average(comm_int_dists), np.average(comm_ext_dists)))
+    else:
+        with open('wiki_num_topics_divergence', 'a') as outfile:
+            outfile.write('{}\t{}\t{}\t{}\t{}\n'.format(lda.num_topics, np.average(clique_int_dists), np.average(clique_ext_dists), np.average(comm_int_dists), np.average(comm_ext_dists)))
+
+def draw_num_topics_average_divergence(cliq_dict, comm_dict, output_name):
+	x_axis = np.arange(25, 101, 25)
+    int_y_axis = [cliq_dict[str(i)][0] for i in x_axis]
+    ext_y_axis = [cliq_dict[str(i)][1] for i in x_axis]
+    plt.figure(1)
+    plt.suptitle('Average Overall Divergence for Number of Topics in Twitter Model', fontsize=14, fontweight='bold')
+    plt.subplot(211)
+    plt.plot(x_axis, int_y_axis, '-g^', x_axis, ext_y_axis, '-bo')
+    plt.xlabel('Number of Topics')
+    plt.ylabel('Jensen Shannon Divergence')
+    plt.title('Clique')
+    plt.xticks(x_axis, x_axis, fontsize=8)
+    plt.yticks(fontsize=10)
+    plt.ylim([0, np.log(2) + 0.01])
+    plt.xlim([min(x_axis), max(x_axis)])
+
+    int_y_axis = [comm_dict[str(i)][0] for i in x_axis]
+    ext_y_axis = [comm_dict[str(i)][1] for i in x_axis]
+    plt.subplot(212)
+    ax = plt.plot(x_axis, int_y_axis, '-g^', x_axis, ext_y_axis, '-bo')
+    plt.xlabel('Number of Topics')
+    plt.ylabel('Jensen Shannon Divergence')
+    plt.title('Community')
+    plt.xticks(x_axis, x_axis, fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.ylim([0, np.log(2) + 0.01])
+    plt.xlim([min(x_axis), max(x_axis)])
+
+    plt.figlegend((ax[0], ax[1]), ('Internal', 'External'), loc='lower center', ncol=5, labelspacing=0. ) 
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.17, top=0.9)
+    plt.savefig(output_name)
+    plt.close()
+
+def draw_num_topics_average_divergence_helper():
+    fieldnames = ['num_topics', 'cliq_int_dist', 'cliq_ext_dist', 'comm_int_dist', 'comm_ext_dist']
+    with open('twitter_num_topics_divergence', 'r') as infile:
+        csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+        twitter_clique = dict((row['num_topics'], [row['cliq_int_dist'], row['cliq_ext_dist']]) for row in csv_reader)
+        infile.seek(0)
+        twitter_comm = dict((row['num_topics'], [row['comm_int_dist'], row['comm_ext_dist']]) for row in csv_reader)
+
+    with open('wiki_num_topics_divergence', 'r') as infile:
+        csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+        wiki_clique = dict((row['num_topics'], [row['cliq_int_dist'], row['cliq_ext_dist']]) for row in csv_reader)
+        infile.seek(0)
+        wiki_comm = dict((row['num_topics'], [row['comm_int_dist'], row['comm_ext_dist']]) for row in csv_reader)
+
+	draw_num_topics_average_divergence(twitter_clique, twitter_comm, 'twitter_num_topics_divergence')
+	draw_num_topics_average_divergence(wiki_clique, wiki_comm, 'wiki_num_topics_divergence')
 
 def user_tweet_distribution():
     """
@@ -148,32 +243,3 @@ def convert_pickle_to_json(user_topics_dir, community):
             comm_doc_vecs[user] = comm_doc_vecs[user].tolist()
         with open(community + '/community_doc_vecs.json', 'w') as json_dump:
             json.dump(comm_doc_vecs, json_dump, sort_keys=True, indent=4)
-
-# https://stackoverflow.com/questions/13249415/can-i-implement-custom-indentation-for-pretty-printing-in-python-s-json-module
-class MyJSONEncoder(json.JSONEncoder):
-  def iterencode(self, o, _one_shot=False):
-    list_lvl = 0
-    for s in super(MyJSONEncoder, self).iterencode(o, _one_shot=_one_shot):
-      if s.startswith('['):
-        list_lvl += 1
-        s = s.replace('\n', '').rstrip()
-      elif 0 < list_lvl:
-        s = s.replace('\n', '')
-        if s and s[-1] == ',':
-          s = s[:-1] + self.item_separator
-        elif s and s[-1] == ':':
-          s = s[:-1] + self.key_separator
-      if s.endswith(']'):
-        list_lvl -= 1
-      yield s
-
-def serialize_json(json_filepath):
-    try:
-    	with open(json_filepath, 'r') as infile:
-    	    all_docs = json.load(infile)
-    except:
-    	all_docs = {}
-    
-    if all_docs:
-        with open(json_filepath, 'w') as outfile:
-        json.dump(all_docs, outfile, cls=MyJSONEncoder, sort_keys=True, indent=2)
