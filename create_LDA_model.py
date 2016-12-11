@@ -15,6 +15,7 @@ from gensim.corpora import MmCorpus, Dictionary, WikiCorpus
 from gensim import models
 import pyLDAvis
 import pyLDAvis.gensim as gensimvis
+import argparse
 
 DEFAULT_DICT_SIZE = 100000
 
@@ -60,58 +61,70 @@ def build_LDA_model(corp_loc, dict_loc, num_topics, lda_loc):
     lda = gensim.models.LdaMulticore(corpus=corpus, id2word=dictionary, num_topics=int(num_topics), alpha='asymmetric', passes=5)
     lda.save(lda_loc + '.model')
 
+    build_pyLDAvis_output(corp_loc, dict_loc, lda_loc)
+
 def build_pyLDAvis_output(corp_loc, dict_loc, lda_loc):
+    if not 'model' in lda_loc:
+        lda_loc += '.model'
+
     corpus = MmCorpus(corp_loc)
     dictionary = Dictionary.load(dict_loc)
-    lda = models.LdaModel.load(lda_loc + '.model')
+    lda = models.LdaModel.load(lda_loc)
     
     vis_data = gensimvis.prepare(lda, corpus, dictionary)
-    pyLDAvis.save_html(vis_data, lda_loc + '.html')
-
-def omit_inactive_users():
-    with open('inactive_users.json', 'r') as infile:
-        inactive = json.load(infile)
-    dir_list = []
-    for path, dirs, files in os.walk(docs_loc):
-        for filename in files:
-            if not filename in inactive:
-                dir_list.append(path + filename)
-        break
-
-    return dir_list
+    pyLDAvis.save_html(vis_data, lda_loc.split('.')[0] + '.html')
 
 # option: text or wiki corpus selector, docs_loc: directory of text docs or location of wiki dump
-# output_corpus: name of output corpus, output_dict: name of output dictionary,
+# corp_loc: name of output corpus, output_dict: name of output dictionary,
 # num_topics: number of topics for model, output_model: name/location of output model
 
 # python2.7 create_LDA_model.py t dnld_tweets/ tweet_corpus tweet_dict 100 lda_model
-def main(option, docs_loc, output_corpus, output_dict, num_topics, output_model):
-    if option == 't':
-        if os.path.exists('inactive_users.json'):
-            dir_list = omit_inactive_users()
-        else:
-            dir_list = os.listdir(docs_loc)
-        
-        doc_corpus = Document_Corpus(dir_list)
+def main():
+    parser = argparse.ArgumentParser(description='Create a corpus from a collection of documents and/or build an LDA model')
+    subparsers = parser.add_subparsers(dest='mode')
+    
+    text_corpus_parser = subparsers.add_parser('text', help='Build corpus from directory of text files')
+    text_corpus_parser.add_argument('-d', '--docs_loc', required=True, action='store', dest='docs_loc', help='Directory where text documents stored')
+    text_corpus_parser.add_argument('-c', '--corp_loc', required=True, action='store', dest='corp_loc', help='Location and name to save corpus')
+
+    wiki_corpus_parser = subparsers.add_parser('wiki', help='Build corpus from compressed Wikipedia articles')
+    wiki_corpus_parser.add_argument('-w', '--wiki_loc', required=True, action='store', dest='wiki_loc', help='Location of compressed Wikipedia dump')
+    wiki_corpus_parser.add_argument('-c', '--corp_loc', required=True, action='store', dest='corp_loc', help='Location and name to save corpus')
+
+    lda_model_parser = subparsers.add_parser('lda', help='Create LDA model from saved corpus')
+    lda_model_parser.add_argument('-c', '--corp_loc', required=True, action='store', dest='corp_loc', help='Location of corpus')
+    lda_model_parser.add_argument('-d', '--dict_loc', required=True, action='store', dest='dict_loc', help='Location of dictionary')
+    lda_model_parser.add_argument('-n', '--num_topics', required=True, action='store', dest='num_topics', help='Number of topics to assign to LDA model')
+    lda_model_parser.add_argument('-l', '--lda_loc', required=True, action='store', dest='lda_loc', help='Location and name to save LDA model')
+
+    lda_vis_parser = subparsers.add_parser('ldavis', help='Create visualization of LDA model')
+    lda_vis_parser.add_argument('-c', '--corp_loc', required=True, action='store', dest='corp_loc', help='Location of corpus')
+    lda_vis_parser.add_argument('-d', '--dict_loc', required=True, action='store', dest='dict_loc', help='Location of dictionary')
+    lda_vis_parser.add_argument('-l', '--lda_loc', required=True, action='store', dest='lda_loc', help='Location of LDA model')
+
+    args = parser.parse_args()
+
+    if args.mode == 'text':
+        doc_corpus = Document_Corpus(os.listdir(args.docs_loc))
 
         # ignore words that appear in less than 5 documents or more than 5% of documents
         doc_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
-        MmCorpus.serialize(output_corpus + '.mm', doc_corpus)
-        tweet_corpus.dictionary.save(output_dict + '.dict')
+        MmCorpus.serialize(args.corp_loc + '.mm', doc_corpus)
+        tweet_corpus.dictionary.save(args.corp_loc + '.dict')
 
-        build_LDA_model(output_corpus, output_dict, num_topics, output_model)
-        build_pyLDAvis_output(output_corpus, output_dict, output_model)
-
-    if option == 'w':
-        wiki_corpus = WikiCorpus(docs_loc)
+    if args.mode == 'wiki':
+        wiki_corpus = WikiCorpus(args.docs_loc)
         wiki_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
-        MmCorpus.serialize(output_corpus + '.mm', wiki_corpus)
-        wiki_corpus.dictionary.save(output_dict + '.dict')
+        MmCorpus.serialize(args.corp_loc + '.mm', wiki_corpus)
+        wiki_corpus.dictionary.save(args.corp_loc + '.dict')
 
-        build_LDA_model(output_corpus, output_dict, num_topics, output_model)
-        build_pyLDAvis_output(output_corpus, output_dict, output_model)
+    if args.mode == 'lda':
+        build_LDA_model(args.corp_loc, args.dict_loc, args.num_topics, args.lda_loc)
+
+    if args.mode == 'ldavis':
+        build_pyLDAvis_output(args.corp_loc, args.dict_loc, args.lda_loc)
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]))
+    sys.exit(main())
