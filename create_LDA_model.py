@@ -114,7 +114,7 @@ def main():
         tweet_corpus.dictionary.save(args.corp_loc + '.dict')
 
     if args.mode == 'wiki':
-        wiki_corpus = WikiCorpus(args.docs_loc)
+        wiki_corpus = WikiCorpus(args.wiki_loc)
         wiki_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
         MmCorpus.serialize(args.corp_loc + '.mm', wiki_corpus)
