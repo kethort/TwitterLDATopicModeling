@@ -13,7 +13,7 @@ index = 0
 
 # populate access credentials into list
 def get_access_creds():
-    i = 0
+    i = 0 
     credentials = defaultdict(list)
 
     with open('twitter_dev_accounts.txt', 'r') as infile:
@@ -23,6 +23,11 @@ def get_access_creds():
             else:
                 i += 1
     return credentials
+
+# remove old credentials that don't work anymore and reposition keys in defaultdict
+def reindex_defaultdict(credentials):
+    for i in range(index, len(credentials) - 1):
+        credentials[i] = credentials.pop(i + 1)
 
 # authenticates to the Twitter API and handles connection issues
 def authenticate(credentials):
@@ -57,6 +62,9 @@ def authenticate(credentials):
         except tweepy.TweepError as e:
             print(e.message[0]['message'])
 
+            if e.message[0]['code'] == 89:
+                reindex_defaultdict(credentials)
+
         except Exception as e:
             print(str(e))
 
@@ -83,7 +91,6 @@ def write_tweet_meta(tweets, meta_filename, followers_filename):
             screen_name = tweet.user.screen_name
             retweet_count = tweet.retweet_count
             user_id = tweet.user.id
-            hashtags = []
             follower_count = tweet.user.followers_count
         
             # pickle dictionary to save memory
@@ -105,8 +112,7 @@ def write_tweet_meta(tweets, meta_filename, followers_filename):
             tagList = tweet.entities.get('hashtags')
             # check if there are hashtags
             if(len(tagList) > 0):
-                for tag in tagList:
-                    hashtags.append(tag['text'])
+                hashtags = [tag['text'] for tag in tagList]
         
             # if the tweet is not a retweet
             if not hasattr(tweet, 'retweeted_status'):
@@ -155,35 +161,21 @@ def get_tweets(user_id, api, credentials):
         finally:
             return tweets, api
             
-def is_active_user(api, inactive_users, active_users, user_id):
-    result = False
-    
-    try:
+# getting the user status count is extremely unreliable because of the 
+# eventual consistency in the data stored on REST API, so this is experimental at best
+def user_status_count(api, user_id):
+    count = 0
+
+    try: 
         user = api.get_user(user_id=user_id)
-        if(user.statuses_count > 10):
-            active_users[str(user_id)] = user.statuses_count
-            result = True
-        else:
-            inactive_users[str(user_id)] = user.statuses_count
+        if(user.statuses_count):
+            count = user.statuses_count
 
     except tweepy.TweepError as e:
         print(e.message[0]['message'])
 
-    except Exception as e:
-        print(e)
-
     finally:
-        return result
-
-def get_comm_set(filename):
-    comm_set = set()
-
-    with open(filename, 'r') as inp_file:
-        for community in inp_file:
-            for user in ast.literal_eval(community):
-                comm_set.add(user)
-
-    return comm_set
+        return count
 
 def main(topology):
     inactive_users = {}
@@ -192,7 +184,8 @@ def main(topology):
 
     tweets_dir = './dnld_tweets/'
 
-    comm_set = get_comm_set(str(topology))
+    with open(topology, 'r') as inp_file:
+        comm_set = set(user for community in inp_file for user in ast.literal_eval(community))
 
     if not os.path.exists(os.path.dirname(tweets_dir)):
         os.makedirs(os.path.dirname(tweets_dir), 0o755)
@@ -204,28 +197,34 @@ def main(topology):
         api = authenticate(credentials)
 
         # don't waste time trying to download tweets for inactive user
-        if not is_active_user(api, inactive_users, active_users, user):
-            if not str(user) in inactive_users:
-                inactive_users[str(user)] = 0 
-            continue
+        status_count = user_status_count(api, user)
 
+        # skip user if you've already downloaded their tweets
         if os.path.exists(tweets_dir + str(user)):
+            if status_count > 10:
+                active_users[str(user)] = status_count
+            else:
+                inactive_users[str(user)] = status_count 
             continue
 
         tweets,api = get_tweets(user, api, credentials)
 
-        # tweepy exception handling not perfect, may still get empty tweets
         if tweets:
             tweet_filename = tweets_dir + str(user)
             write_tweets(tweets, tweet_filename)
+
+            if status_count > 10:
+                active_users[str(user)] = status_count
+            else:
+                inactive_users[str(user)] = status_count 
         else:
             inactive_users[str(user)] = 0 
 
-    with open('inactive_users.json', 'w') as outfile:
-        json.dump(inactive_users, outfile, sort_keys=True, indent=4)
-            
     with open('user_tweet_count.json', 'w') as outfile:
         json.dump(active_users, outfile, sort_keys=True, indent=4)
+
+    with open('inactive_users.json', 'w') as outfile:
+        json.dump(inactive_users, outfile, sort_keys=True, indent=4)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1]))
