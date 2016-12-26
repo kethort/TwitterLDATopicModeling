@@ -1,146 +1,126 @@
-# -*- coding: utf-8 -*-
-import numpy as np
-import gensim
-from gensim import utils, corpora, models
-import json
-import sys
-import re
+import logging
 import os
-import ast
+import sys
+import bz2
+import re
+import itertools
+import tarfile
 import multiprocessing
-from functools import partial
+import gensim
+from gensim.corpora import MmCorpus, Dictionary, WikiCorpus
+from gensim import models
+import pyLDAvis
+import pyLDAvis.gensim as gensimvis
+import argparse
 
-# http://stackoverflow.com/questions/15365046/python-removing-pos-tags-from-a-txt-file
-def write_topn_words(user_topics_dir, lda_model):
-    if not os.path.exists(user_topics_dir + 'topn_words.txt'):
-        print('Writing topn words for LDA model')
-        reg_ex = re.compile('(?<![\s/])/[^\s/]+(?![\S/])')
+DEFAULT_DICT_SIZE = 100000
 
-        with open(user_topics_dir + 'topn_words.txt', 'w') as outfile:
-            for i in range(lda_model.num_topics):
-                outfile.write('{}\n'.format('Topic #' + str(i + 1) + ': '))
-                for word, prob in lda_model.show_topic(i, topn=20):
-                    word = reg_ex.sub('', word)
-                    outfile.write('\t{}\n'.format(word.encode('utf-8')))
-                outfile.write('\n')	
+from nltk.corpus import stopwords
+ignore_words = set(stopwords.words('english'))
 
-def combine_vector_dictionaries(user_topics_dir, community_doc_vecs):
-    try:
-        with open(user_topics_dir + 'all_community_doc_vecs.json', 'r') as all_community_file:
-            all_community_doc_vecs = json.load(all_community_file)
-    except:
-        all_community_doc_vecs = {}
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
-    all_community_doc_vecs.update(community_doc_vecs)
-    with open(user_topics_dir + 'all_community_doc_vecs.json', 'w') as all_community_doc_vecs_file:
-        json.dump(all_community_doc_vecs, all_community_doc_vecs_file, sort_keys=True, indent=4)
-
-def preprocess_text(tweetpath):
-    with open(tweetpath, 'r') as infile:
+def preprocess_tweet(tweet):
+    with open(tweet, 'r') as infile:
+        # transform tweet document into one string
         text = ' '.join(line.rstrip('\n') for line in infile)
-    # remove emoji's and links from tweets
-    # http://stackoverflow.com/questions/26568722/remove-unicode-emoji-using-re-in-python
+    # remove emoji's
     try:
         reg_ex = re.compile(u'([\U0001F300-\U0001F64F])|([\U0001F680-\U0001F6FF])|([\U00002600-\U000027BF])')
     except:
         reg_ex = re.compile(u'([\u2600-\u27BF])|([\uD83C][\uDF00-\uDFFF])|([\uD83D][\uDC00-\uDE4F])|([\uD83D][\uDE80-\uDEFF])')
+    # remove URLS
     text = reg_ex.sub('', text)
-    # http://stackoverflow.com/questions/11331982/how-to-remove-any-url-within-a-string-in-python
     text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', text)
-    text = re.sub(r'[^\w]', ' ', text) # remove hashtag
-    #return list(utils.simple_preprocess(text, deacc=True, min_len=2, max_len=15))
-    return utils.lemmatize(text)
+    # remove hashtag symbol
+    text = re.sub(r'[^\w]', ' ', text) 
+    text = text.replace("'", "")
+    # remove stopwords and lemmatize
+    #return list(gensim.utils.lemmatize(text, allowed_tags=re.compile('(NN)'), stopwords=ignore_words, min_length=3))
+    return list(gensim.utils.lemmatize(text, stopwords=ignore_words, min_length=3))
 
-def get_document_vectors(inputs, user_id):
-    tweets_dir = inputs[0]
-    all_community_doc_vecs = inputs[1]
-    dictionary = inputs[2]
-    lda_model = inputs[3]
+def list_to_gen(directory):
+    for filename in os.listdir(directory):
+        yield directory + str(filename)
 
-    if 'clique' in user_id:
-        print('Getting document vectors for: ' + user_id)
+class Document_Corpus(gensim.corpora.TextCorpus):
+    def get_texts(self):
+        pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
+        for tokens in pool.imap(preprocess_tweet, list_to_gen(self.input)):
+            yield tokens
+        pool.terminate()
 
-    if os.path.exists(tweets_dir + user_id):
-        tweetpath = tweets_dir + user_id
-    else:
-        return
+def build_LDA_model(corp_loc, dict_loc, num_topics, lda_loc):
+    corpus = MmCorpus(corp_loc) 
+    dictionary = Dictionary.load(dict_loc)
 
-    if not user_id in all_community_doc_vecs:
-        document = preprocess_text(tweetpath)
+    lda = gensim.models.LdaMulticore(corpus=corpus, id2word=dictionary, num_topics=int(num_topics), alpha='asymmetric', passes=5)
+    lda.save(lda_loc + '.model')
 
-        # if after preprocessing the list is empty then skip that user
-        if not document:
-            return
+    build_pyLDAvis_output(corp_loc, dict_loc, lda_loc)
 
-        # create bag of words from input document
-        doc_bow = dictionary.doc2bow(document)
+def build_pyLDAvis_output(corp_loc, dict_loc, lda_loc):
+    if not 'model' in lda_loc:
+        lda_loc += '.model'
 
-        # queries the document against the LDA model and associates the data with probabalistic topics
-        doc_lda = get_doc_topics(lda_model, doc_bow)
-        dense_vec = gensim.matutils.sparse2full(doc_lda, lda_model.num_topics)
+    corpus = MmCorpus(corp_loc)
+    dictionary = Dictionary.load(dict_loc)
+    lda = models.LdaModel.load(lda_loc)
     
-        # build dictionary of user document vectors <k, v>(user_id, vec)
-        return (user_id, dense_vec.tolist())
-    else:
-        return (user_id, all_community_doc_vecs[user_id])
+    vis_data = gensimvis.prepare(lda, corpus, dictionary)
+    pyLDAvis.save_html(vis_data, lda_loc.split('.')[0] + '.html')
+
+# option: text or wiki corpus selector, docs_loc: directory of text docs or location of wiki dump
+# corp_loc: name of output corpus, output_dict: name of output dictionary,
+# num_topics: number of topics for model, output_model: name/location of output model
+
+# python2.7 create_LDA_model.py t dnld_tweets/ doc_corpus tweet_dict 100 lda_model
+def main():
+    parser = argparse.ArgumentParser(description='Create a corpus from a collection of documents and/or build an LDA model')
+    subparsers = parser.add_subparsers(dest='mode')
     
-# http://stackoverflow.com/questions/17310933/document-topical-distribution-in-gensim-lda
-def get_doc_topics(lda, bow):
-    gamma, _ = lda.inference([bow])
-    topic_dist = gamma[0] / sum(gamma[0])
-    return [(topic_id, topic_value) for topic_id, topic_value in enumerate(topic_dist)]
+    text_corpus_parser = subparsers.add_parser('text', help='Build corpus from directory of text files')
+    text_corpus_parser.add_argument('-d', '--docs_loc', required=True, action='store', dest='docs_loc', help='Directory where text documents stored')
+    text_corpus_parser.add_argument('-c', '--corp_loc', required=True, action='store', dest='corp_loc', help='Location and name to save corpus')
 
-def users_to_iter(community):
-    for user in ast.literal_eval(community):
-        yield str(user)
+    wiki_corpus_parser = subparsers.add_parser('wiki', help='Build corpus from compressed Wikipedia articles')
+    wiki_corpus_parser.add_argument('-w', '--wiki_loc', required=True, action='store', dest='wiki_loc', help='Location of compressed Wikipedia dump')
+    wiki_corpus_parser.add_argument('-c', '--corp_loc', required=True, action='store', dest='corp_loc', help='Location and name to save corpus')
 
-# topology: topology file, output_dir: name of directory to create, dict_loc: dictionary, lda_loc: lda model,
-# dir_prefix: prefix for subdirectories (ie community_1)
+    lda_model_parser = subparsers.add_parser('lda', help='Create LDA model from saved corpus')
+    lda_model_parser.add_argument('-c', '--corp_loc', required=True, action='store', dest='corp_loc', help='Location of corpus')
+    lda_model_parser.add_argument('-d', '--dict_loc', required=True, action='store', dest='dict_loc', help='Location of dictionary')
+    lda_model_parser.add_argument('-n', '--num_topics', required=True, action='store', dest='num_topics', help='Number of topics to assign to LDA model')
+    lda_model_parser.add_argument('-l', '--lda_loc', required=True, action='store', dest='lda_loc', help='Location and name to save LDA model')
 
-# python2.7 tweets_on_LDA.py communities user_topics_ex data/twitter/tweets.dict data/twitter/tweets_100_lem_5_pass.model community
-def main(topology, tweets_dir, output_dir, dict_loc, lda_loc, dir_prefix):
-    user_topics_dir = output_dir + '/'
+    lda_vis_parser = subparsers.add_parser('ldavis', help='Create visualization of LDA model')
+    lda_vis_parser.add_argument('-c', '--corp_loc', required=True, action='store', dest='corp_loc', help='Location of corpus')
+    lda_vis_parser.add_argument('-d', '--dict_loc', required=True, action='store', dest='dict_loc', help='Location of dictionary')
+    lda_vis_parser.add_argument('-l', '--lda_loc', required=True, action='store', dest='lda_loc', help='Location of LDA model')
 
-    # create output directories
-    if not os.path.exists(os.path.dirname(user_topics_dir)):
-        os.makedirs(os.path.dirname(user_topics_dir), 0o755)
+    args = parser.parse_args()
 
-    # load wiki dictionary
-    dictionary = corpora.Dictionary.load(dict_loc)
+    if args.mode == 'text':
+        doc_corpus = Document_Corpus(args.docs_loc)
 
-    # load trained wiki model from file
-    lda_model = models.LdaModel.load(lda_loc)
+        # ignore words that appear in less than 5 documents or more than 5% of documents
+        doc_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
-    write_topn_words(user_topics_dir, lda_model)
+        MmCorpus.serialize(args.corp_loc + '.mm', doc_corpus)
+        doc_corpus.dictionary.save(args.corp_loc + '.dict')
 
-    with open(topology, 'r') as topology_file:
-        for i, community in enumerate(topology_file):
-            try:
-                with open(user_topics_dir + 'all_community_doc_vecs.json', 'r') as all_community_file:
-                    all_community_doc_vecs = json.load(all_community_file)
-            except:
-                all_community_doc_vecs = {}
+    if args.mode == 'wiki':
+        wiki_corpus = WikiCorpus(args.wiki_loc)
+        wiki_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
-            community_dir = user_topics_dir + dir_prefix + '_' + str(i) + '/'
- 
-            if not os.path.exists(os.path.dirname(community_dir)):
-                os.makedirs(os.path.dirname(community_dir), 0o755)
+        MmCorpus.serialize(args.corp_loc + '.mm', wiki_corpus)
+        wiki_corpus.dictionary.save(args.corp_loc + '.dict')
 
-            print('Getting document vectors for %s %s ' % (dir_prefix, i))
-             
-            community_doc_vecs = {}
-            pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
-            func = partial(get_document_vectors, (tweets_dir, all_community_doc_vecs, dictionary, lda_model))
-            doc_vecs = pool.map(func, users_to_iter(community))
-            doc_vecs = [item for item in doc_vecs if item is not None]
-            pool.close()
-            community_doc_vecs = dict(doc_vecs)
- 
-            combine_vector_dictionaries(user_topics_dir, community_doc_vecs)
- 
-            # save each community document vector dictionary for later use
-            with open(community_dir + '/community_doc_vecs.json', 'w') as community_doc_vecs_file:
-                json.dump(community_doc_vecs, community_doc_vecs_file, sort_keys=True, indent=4)
+    if args.mode == 'lda':
+        build_LDA_model(args.corp_loc, args.dict_loc, args.num_topics, args.lda_loc)
+
+    if args.mode == 'ldavis':
+        build_pyLDAvis_output(args.corp_loc, args.dict_loc, args.lda_loc)
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
+    sys.exit(main())
