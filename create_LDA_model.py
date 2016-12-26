@@ -47,7 +47,7 @@ def preprocess_tweet(tweet):
         #return list(gensim.utils.lemmatize(text, allowed_tags=re.compile('(NN)'), stopwords=ignore_words, min_length=3))
         return list(gensim.utils.lemmatize(text, stopwords=ignore_words, min_length=3))
 
-class Document_Corpus(gensim.corpora.TextCorpus):
+class DocumentCorpus(gensim.corpora.TextCorpus):
     def get_texts(self):
         pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
         for tokens in pool.imap(preprocess_tweet, list_to_gen(self.input)):
@@ -105,7 +105,7 @@ def main():
     args = parser.parse_args()
 
     if args.mode == 'text':
-        doc_corpus = Document_Corpus(os.listdir(args.docs_loc))
+        doc_corpus = DocumentCorpus(os.listdir(args.docs_loc))
 
         # ignore words that appear in less than 5 documents or more than 5% of documents
         doc_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
