@@ -1,0 +1,11 @@
+atlas==0.27.0
+bz2file==0.98
+click==6.6
+gensim==0.13.1
+matplotlib==1.5.1
+nltk==3.2.1
+numpy==1.11.2
+Pattern==2.6
+pyLDAvis==2.1.0
+scipy==0.18.1
+tweepy==3.5.0
