@@ -1,7 +1,3 @@
-# Source for Gensim library and tutorials: http://radimrehurek.com/gensim/index.html
-# http://stackoverflow.com/questions/26568722/remove-unicode-emoji-using-re-in-python
-# http://stackoverflow.com/questions/11331982/how-to-remove-any-url-within-a-string-in-python
-# https://pymotw.com/2/multiprocessing/mapreduce.html
 import logging
 import os
 import sys
@@ -43,8 +39,9 @@ def preprocess_tweet(tweet):
         # remove hashtag symbol
         text = re.sub(r'[^\w]', ' ', text) 
         text = text.replace("'", "")
-        # remove stopwords and lemmatize
+        # remove stopwords and tokenize
         #return list(gensim.utils.lemmatize(text, allowed_tags=re.compile('(NN)'), stopwords=ignore_words, min_length=3))
+        # remove stopwords and lemmatize
         return list(gensim.utils.lemmatize(text, stopwords=ignore_words, min_length=3))
 
 class DocumentCorpus(gensim.corpora.TextCorpus):
@@ -74,12 +71,13 @@ def build_pyLDAvis_output(corp_loc, dict_loc, lda_loc):
     vis_data = gensimvis.prepare(lda, corpus, dictionary)
     pyLDAvis.save_html(vis_data, lda_loc.split('.')[0] + '.html')
 
-# option: text or wiki corpus selector, docs_loc: directory of text docs or location of wiki dump
-# corp_loc: name of output corpus, output_dict: name of output dictionary,
-# num_topics: number of topics for model, output_model: name/location of output model
 
 # python2.7 create_LDA_model.py t dnld_tweets/ tweet_corpus tweet_dict 100 lda_model
 def main():
+    '''
+    option: text or wiki corpus selector, docs_loc: directory of text docs or location of wiki dump
+    corp_loc: name of output corpus, num_topics: number of topics for model, output_model: name/location of output model
+    '''
     parser = argparse.ArgumentParser(description='Create a corpus from a collection of documents and/or build an LDA model')
     subparsers = parser.add_subparsers(dest='mode')
     
