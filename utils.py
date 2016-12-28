@@ -50,12 +50,11 @@ def filter_saved_corpus():
 
 # http://nbviewer.jupyter.org/github/dsquareindia/gensim/blob/a4b2629c0fdb0a7932db24dfcf06699c928d112f/docs/notebooks/topic_coherence_tutorial.ipynb
 def get_topic_coherence():
-	dictionary = Dictionary.load('./data/author_topic.dict')
-        corpus = MmCorpus('./data/author_topic.mm')
-	lda = LdaModel.load('./data/at_100_lem_5_pass_2.model')
-	cm = CoherenceModel(model=lda, corpus=corpus, dictionary=dictionary, coherence='u_mass')
-	print(cm.get_coherence())
-
+    dictionary = Dictionary.load('./data/author_topic.dict')
+    corpus = MmCorpus('./data/author_topic.mm')
+    lda = LdaModel.load('./data/at_100_lem_5_pass_2.model')
+    cm = CoherenceModel(model=lda, corpus=corpus, dictionary=dictionary, coherence='u_mass')
+    print(cm.get_coherence())
 
 def write_overall_average_divergence_per_model(user_topics_dir, lda_loc):
     # write overall internal & external average community distance for each topic model
@@ -92,7 +91,7 @@ def write_overall_average_divergence_per_model(user_topics_dir, lda_loc):
             outfile.write('{}\t{}\t{}\t{}\t{}\n'.format(lda.num_topics, np.average(clique_int_dists), np.average(clique_ext_dists), np.average(comm_int_dists), np.average(comm_ext_dists)))
 
 def draw_num_topics_average_divergence(cliq_dict, comm_dict, output_name):
-	x_axis = np.arange(25, 101, 25)
+    x_axis = np.arange(25, 101, 25)
     int_y_axis = [cliq_dict[str(i)][0] for i in x_axis]
     ext_y_axis = [cliq_dict[str(i)][1] for i in x_axis]
     plt.figure(1)
