@@ -1,18 +1,11 @@
 # -*- coding: utf-8 -*-
-import time
-import gensim
-from gensim import utils, corpora, models
 import csv
 import ast
-import re
 import os
 import sys
-import json
 import numpy as np
 import matplotlib.pyplot as plt
-from shutil import copyfile
 import tweets_on_LDA as tlda
-import plot_distances as pltd
 import multiprocessing
 from functools import partial
 
@@ -210,8 +203,8 @@ def main(clique_top, comm_top, tweets_dir, dict_loc, lda_loc, user_topics_dir):
                 outfile.write('{}\t{}\t{}\t{}\n'.format(dist, np.average(distances), clique_size[cid[0]], community_size[cid[0]])) 
 
 
-	fieldnames = ['comm_id', 'avg_distance', 'comm_size', 'cliq_size']
-    for user_topics_dir, distance_file in distance_files_to_iter(output_dir):
+    fieldnames = ['comm_id', 'avg_distance', 'comm_size', 'cliq_size']
+    for user_topics_dir, distance_file in average_distance_files_to_iter(output_dir):
         with open(distance_file, 'r') as infile:
             csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
             draw_community_average_distances(user_topics_dir, distance_file, dict((row['comm_id'], row['avg_distance']) for row in csv_reader))
