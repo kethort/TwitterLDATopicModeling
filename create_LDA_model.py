@@ -9,7 +9,7 @@ import multiprocessing
 import gensim
 from gensim.corpora import MmCorpus, Dictionary, WikiCorpus
 from gensim import models
-import pyLDAvis
+from pyLDAvis import gensim as gensim_vis
 import argparse
 
 DEFAULT_DICT_SIZE = 100000
@@ -66,7 +66,7 @@ def build_pyLDAvis_output(corp_loc, dict_loc, lda_loc):
     dictionary = Dictionary.load(dict_loc)
     lda = models.LdaModel.load(lda_loc)
     
-    vis_data = pyLDAvis.gensim.prepare(lda, corpus, dictionary)
+    vis_data = gensim_vis.prepare(lda, corpus, dictionary)
     pyLDAvis.save_html(vis_data, lda_loc.split('.')[0] + '.html')
 
 # option: text or wiki corpus selector, docs_loc: directory of text docs or location of wiki dump
