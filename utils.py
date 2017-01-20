@@ -50,11 +50,12 @@ def filter_saved_corpus():
 
 # http://nbviewer.jupyter.org/github/dsquareindia/gensim/blob/a4b2629c0fdb0a7932db24dfcf06699c928d112f/docs/notebooks/topic_coherence_tutorial.ipynb
 def get_topic_coherence():
-    dictionary = Dictionary.load('./data/author_topic.dict')
-    corpus = MmCorpus('./data/author_topic.mm')
-    lda = LdaModel.load('./data/at_100_lem_5_pass_2.model')
-    cm = CoherenceModel(model=lda, corpus=corpus, dictionary=dictionary, coherence='u_mass')
-    print(cm.get_coherence())
+	dictionary = Dictionary.load('./data/author_topic.dict')
+        corpus = MmCorpus('./data/author_topic.mm')
+	lda = LdaModel.load('./data/at_100_lem_5_pass_2.model')
+	cm = CoherenceModel(model=lda, corpus=corpus, dictionary=dictionary, coherence='u_mass')
+	print(cm.get_coherence())
+
 
 def write_overall_average_divergence_per_model(user_topics_dir, lda_loc):
     # write overall internal & external average community distance for each topic model
@@ -91,7 +92,7 @@ def write_overall_average_divergence_per_model(user_topics_dir, lda_loc):
             outfile.write('{}\t{}\t{}\t{}\t{}\n'.format(lda.num_topics, np.average(clique_int_dists), np.average(clique_ext_dists), np.average(comm_int_dists), np.average(comm_ext_dists)))
 
 def draw_num_topics_average_divergence(cliq_dict, comm_dict, output_name):
-    x_axis = np.arange(25, 101, 25)
+	x_axis = np.arange(25, 101, 25)
     int_y_axis = [cliq_dict[str(i)][0] for i in x_axis]
     ext_y_axis = [cliq_dict[str(i)][1] for i in x_axis]
     plt.figure(1)
@@ -242,3 +243,51 @@ def convert_pickle_to_json(user_topics_dir, community):
             comm_doc_vecs[user] = comm_doc_vecs[user].tolist()
         with open(community + '/community_doc_vecs.json', 'w') as json_dump:
             json.dump(comm_doc_vecs, json_dump, sort_keys=True, indent=4)
+
+def write_tweet_meta(tweets, meta_filename, followers_filename):
+    ''' 
+        writes the Tweet metadata being scraped to a file as:
+        tweet_type, user_id, RT_user_id, RT_count, tweet_id, hashtags, screen_name
+    '''
+    with open(meta_filename, 'a') as clique_tweet_metadata:
+        for tweet in tweets:
+            user_followers = {}
+            favorite_count = tweet.favorite_count
+            tweet_id = tweet.id_str
+            screen_name = tweet.user.screen_name
+            retweet_count = tweet.retweet_count
+            user_id = tweet.user.id
+            follower_count = tweet.user.followers_count
+        
+            if os.path.exists(followers_filename):
+                with open(followers_filename, 'r') as follower_dump:
+                    user_followers = json.load(follower_dump)
+
+            # get the follower count of each user
+            if not any(str(user_id) in key for key in user_followers):
+                user_followers[str(user_id)] = str(follower_count)
+            
+            # serialize dictionary to save memory
+            with open(followers_filename, 'w') as follower_dump:
+                json.dump(user_followers, follower_dump)
+                
+            user_followers = {}
+
+            # extract hashtags
+            tagList = tweet.entities.get('hashtags')
+            # check if there are hashtags
+            if(len(tagList) > 0):
+                hashtags = [tag['text'] for tag in tagList]
+        
+            # if the tweet is not a retweet
+            if not hasattr(tweet, 'retweeted_status'):
+                out = '%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n' % ('T', user_id, user_id, retweet_count, tweet_id, hashtags, screen_name) 
+            # if it is retweet, get user id of original tweet 
+            else:
+                rt_user_id = tweet.retweeted_status.user.id
+                rt_screen_name = tweet.retweeted_status.user.screen_name
+                orig_tweet_id = tweet.retweeted_status.id_str
+        
+                out = '%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n' % ('RT', user_id, rt_user_id, retweet_count, orig_tweet_id, hashtags, rt_screen_name) 
+            clique_tweet_metadata.write(out)
+

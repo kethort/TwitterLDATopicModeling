@@ -171,7 +171,11 @@ def main(clique_top, comm_top, tweets_dir, dict_loc, lda_loc, user_topics_dir):
         for i, community in enumerate(topology):
             community_size.append(len(ast.literal_eval(community)))
 
-            func = partial(tlda.get_document_vectors, (tweets_dir, all_community_doc_vecs, dictionary, lda))
+            func = partial(tlda.get_document_vectors, 
+                           tweets_dir=tweets_dir, 
+                           all_comm_doc_vecs=all_community_doc_vecs, 
+                           dictionary=dictionary, 
+                           lda_model=lda))
             doc_vecs = pool.map(func, tlda.users_to_iter(community))
             doc_vecs = [item for item in doc_vecs if item is not None]
             doc_vecs = dict(doc_vecs)
