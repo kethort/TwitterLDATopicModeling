@@ -8,6 +8,6 @@ The follower relationship on Twitter differs from other social media networks li
 
 
 <p align="center">
-  <img src="img/22393440.png" width="350"/>
+  <img src="" width="350"/>
 </p>
 
