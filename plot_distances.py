@@ -478,7 +478,8 @@ def community_average_internal_external_distance(user_topics_dir):
     output_path = user_topics_dir + 'community_internal_external_divergence'
     plt.ylim([0, np.log(2) + .001])
     plt.xlim([0, len(int_comm_y_axis) - 1])
-    plt.legend(['Internal', 'External'], loc='upper center', ncol=2)
+    plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+    plt.subplots_adjust(bottom=0.2)
     plt.savefig(output_path)
     plt.close()
 
@@ -490,7 +491,8 @@ def community_average_internal_external_distance(user_topics_dir):
     output_path = user_topics_dir + 'clique_internal_external_divergence'
     plt.ylim([0, np.log(2) + .001])
     plt.xlim([0, len(int_clq_y_axis) - 1])
-    plt.legend(['Internal', 'External'], loc='upper center', ncol=2)
+    plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+    plt.subplots_adjust(bottom=0.2)
     plt.savefig(output_path)
     plt.close()
 
@@ -502,7 +504,8 @@ def community_average_internal_external_distance(user_topics_dir):
     output_path = user_topics_dir + 'clique_community_internal_divergence'
     plt.ylim([0, np.log(2) + .001])
     plt.xlim([0, len(int_comm_y_axis) - 1])
-    plt.legend(['Clique', 'Community'], loc='upper center', ncol=2)
+    plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+    plt.subplots_adjust(bottom=0.2)
     plt.savefig(output_path)
     plt.close()
 
@@ -732,6 +735,8 @@ def distributed_average_similarity_clique_community_size_graph(user_topics_dir, 
     plt.legend(['clique', 'community',], loc='upper center', ncol=2)
     plt.ylim([0, np.log(2) + .001])
     plt.xlim([0, max(comm_x_axis) + 1])
+    plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+    plt.subplots_adjust(bottom=0.2)
     plt.savefig(output_path)
     plt.close()
 
