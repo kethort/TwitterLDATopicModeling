@@ -61,7 +61,7 @@ def community_user_distances(community_dir):
                 hellfile.write('{}\t{}\t{}\n'.format(user, key_2, hellinger_distance(vec_1, vec_2)))
                 eucfile.write('{}\t{}\t{}\n'.format(user, key_2, distance.euclidean(vec_1, vec_2)))
                 jenshanfile.write('{}\t{}\t{}\n'.format(user, key_2, jensen_shannon_divergence(vec_1, vec_2)))
-    community_average_distances(community_dir)
+    community_median_distances(community_dir)
 
 # https://gist.github.com/larsmans/3116927
 def hellinger_distance(P, Q):
@@ -74,27 +74,28 @@ def jensen_shannon_divergence(P, Q):
     _M = 0.5 * (_P + _Q)
     return 0.5 * (entropy(_P, _M) + entropy(_Q, _M))
 
-def community_average_distances(community_dir):
+def community_median_distances(community_dir):
     tot_rows = 0
     fieldnames = ['user_1', 'user_2', 'distance']
         
-    if os.path.exists(community_dir + '/distance_info/community_average_distances'):
-        os.remove(community_dir + '/distance_info/community_average_distances')
+    if os.path.exists(community_dir + '/distance_info/community_median_distances'):
+        os.remove(community_dir + '/distance_info/community_median_distances')
     
     # load the dictionary containing the user document vectors of the community 
     with open(community_dir + '/community_doc_vecs.json', 'r') as community_doc_vecs_file:
         community_doc_vecs = json.load(community_doc_vecs_file)
        
+    print('Calculating median distances for: ' + community_dir)
     # access the distance files in the community directory
     for path, dirs, files in os.walk(community_dir + '/distance_info/'):
         for distance_file in files:
-            # find the average distances between users for the community
+            # find the median distances between users for the community
             with open(path + distance_file, 'r') as infile:
                 csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
                 distances = [float(row['distance']) for row in csv_reader if row['distance']]
             if distances:
-                with open(path + 'community_average_distances', 'a') as outfile:
-                    outfile.write('{}\t{}\n'.format(str(distance_file), scipy.mean(distances)))
+                with open(path + 'community_median_distances', 'a') as outfile:
+                    outfile.write('{}\t{}\n'.format(str(distance_file), np.median(distances)))
         break
 
 def user_to_internal_users_graph(community):
@@ -167,7 +168,7 @@ def user_to_external_users_graph(user_topics_dir, community):
     jensen shannon divergences against randomly selected users from outside
     communities.
 
-    The measured divergences between users is averaged over a set amount of iterations.
+    The measured divergences between users is mediand over a set amount of iterations.
 
     Methods used:
     > get_rand_users()
@@ -229,21 +230,21 @@ def user_to_external_users_graph(user_topics_dir, community):
                 for dist in distances['jen']:
                     graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
                     y_axis.append(dist/NUM_ITER)
-            user_avg_dist['jen'].append(np.average(y_axis))
+            user_avg_dist['jen'].append(np.median(y_axis))
             if not os.path.exists(jsd_path + user + '.png'):
                 draw_scatter_graph(user, 'External Users', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + .01), jsd_path + user)
             y_axis = []
             for dist in distances['hel']:
                 y_axis.append(dist/NUM_ITER)
-            user_avg_dist['hel'].append(np.average(y_axis))
+            user_avg_dist['hel'].append(np.median(y_axis))
             y_axis = []
             for dist in distances['cos']:
                 y_axis.append(dist/NUM_ITER)
-            user_avg_dist['cos'].append(np.average(y_axis))
+            user_avg_dist['cos'].append(np.median(y_axis))
             y_axis = []
             for dist in distances['euc']:
                 y_axis.append(dist/NUM_ITER)
-            user_avg_dist['euc'].append(np.average(y_axis))
+            user_avg_dist['euc'].append(np.median(y_axis))
 
         else:
             distances = []
@@ -251,18 +252,18 @@ def user_to_external_users_graph(user_topics_dir, community):
                 csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
                 for row in csv_reader:
                     distances.append(float(row['dist']))
-            user_avg_dist['jen'].append(np.average(distances))
+            user_avg_dist['jen'].append(np.median(distances))
 
-    with open(community + '/distance_info/external_average_distances', 'w') as outfile:
+    with open(community + '/distance_info/external_median_distances', 'w') as outfile:
         for metric in user_avg_dist:
             if(metric == 'jen'):
-                outfile.write('{}\t{}\n'.format('jensen_shannon', np.average(user_avg_dist[metric])))
+                outfile.write('{}\t{}\n'.format('jensen_shannon', np.median(user_avg_dist[metric])))
             elif(metric == 'hel'):
-                outfile.write('{}\t{}\n'.format('hellinger', np.average(user_avg_dist[metric])))
+                outfile.write('{}\t{}\n'.format('hellinger', np.median(user_avg_dist[metric])))
             elif(metric == 'euc'):
-                outfile.write('{}\t{}\n'.format('euclidean', np.average(user_avg_dist[metric])))
+                outfile.write('{}\t{}\n'.format('euclidean', np.median(user_avg_dist[metric])))
             elif(metric == 'cos'):
-                outfile.write('{}\t{}\n'.format('cosine', np.average(user_avg_dist[metric])))
+                outfile.write('{}\t{}\n'.format('cosine', np.median(user_avg_dist[metric])))
 
 def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
     '''
@@ -353,8 +354,10 @@ def draw_user_internal_external_graph(user, dist_path, community, metric):
             plt.ylim([0, 1])
 
         plt.xlabel('Users')
-        plt.xlim([0, len(y_axis)])
-        plt.legend(['Internal', 'External'], loc='upper left')
+        plt.xlim([0, len(y_axis) - 1])
+        plt.xticks(np.arange(0, len(y_axis), 1))
+        plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+        plt.subplots_adjust(bottom=0.2)
         plt.savefig(output_path)
         plt.close()
 
@@ -415,7 +418,7 @@ def draw_num_users_distance_range_graph(community, comm_doc_vecs, output_dir, me
             plt.bar(x_axis - 0.2, num_internal_users, width, alpha=0.4, color='r')
             plt.bar(x_axis + 0.2, num_external_users, width, alpha=0.4, color='b')
             plt.ylabel('Number of users')
-            plt.legend(['Internal', 'External',], loc='upper left')
+            plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
             plt.xticks(x_axis, objects, rotation=45, fontsize='small')
             plt.subplots_adjust(bottom=0.2)
             plt.xlim([-1, len(objects)])
@@ -448,14 +451,14 @@ def get_num_users(input_file, distance_range):
 
     return y_vals 
 
-def community_average_internal_external_distance(user_topics_dir):
+def community_median_internal_external_distance(user_topics_dir):
     '''
 
-    graphs displaying average internal vs average external distances
+    graphs displaying median internal vs median external distances
     for communities and cliques
 
     Methods used:
-    > community_clique_average_axes()
+    > community_clique_median_axes()
 
     '''
     dist_dirs = []
@@ -467,14 +470,14 @@ def community_average_internal_external_distance(user_topics_dir):
             dist_dirs.append(path + community + '/distance_info/')
         break # restrict depth of folder traversal to 1
 
-    int_clq_y_axis, int_comm_y_axis = community_clique_average_axes(dist_dirs, 'community_average_distances')
-    ext_clq_y_axis, ext_comm_y_axis = community_clique_average_axes(dist_dirs, 'external_average_distances')
+    int_clq_y_axis, int_comm_y_axis = community_clique_median_axes(dist_dirs, 'community_median_distances')
+    ext_clq_y_axis, ext_comm_y_axis = community_clique_median_axes(dist_dirs, 'external_median_distances')
 
     plt.plot(np.arange(0, len(int_comm_y_axis)), int_comm_y_axis, 'b')
     plt.plot(np.arange(0, len(ext_comm_y_axis)), ext_comm_y_axis, 'g', alpha=0.7)
-    plt.ylabel('Average Jensen Shannon Divergence')
+    plt.ylabel('Median Jensen Shannon Divergence')
     plt.xlabel('Community')
-    plt.title('Average Internal/External Community Divergence')
+    plt.title('Median Internal/External Community Divergence')
     output_path = user_topics_dir + 'community_internal_external_divergence'
     plt.ylim([0, np.log(2) + .001])
     plt.xlim([0, len(int_comm_y_axis) - 1])
@@ -485,9 +488,9 @@ def community_average_internal_external_distance(user_topics_dir):
 
     plt.plot(np.arange(0, len(int_clq_y_axis)), int_clq_y_axis, 'b')
     plt.plot(np.arange(0, len(ext_clq_y_axis)), ext_clq_y_axis, 'g', alpha=0.7)
-    plt.ylabel('Average Jensen Shannon Divergence')
+    plt.ylabel('Median Jensen Shannon Divergence')
     plt.xlabel('Clique')
-    plt.title('Average Internal/External Clique Divergence')
+    plt.title('Median Internal/External Clique Divergence')
     output_path = user_topics_dir + 'clique_internal_external_divergence'
     plt.ylim([0, np.log(2) + .001])
     plt.xlim([0, len(int_clq_y_axis) - 1])
@@ -498,9 +501,9 @@ def community_average_internal_external_distance(user_topics_dir):
 
     plt.plot(np.arange(0, len(int_clq_y_axis)), int_clq_y_axis, 'b')
     plt.plot(np.arange(0, len(int_comm_y_axis)), int_comm_y_axis, 'g', alpha=0.7)
-    plt.ylabel('Average Jensen Shannon Divergence')
+    plt.ylabel('Median Jensen Shannon Divergence')
     plt.xlabel('Clique/Community')
-    plt.title('Average Internal Clique/Community Divergence')
+    plt.title('Median Internal Clique/Community Divergence')
     output_path = user_topics_dir + 'clique_community_internal_divergence'
     plt.ylim([0, np.log(2) + .001])
     plt.xlim([0, len(int_comm_y_axis) - 1])
@@ -509,11 +512,11 @@ def community_average_internal_external_distance(user_topics_dir):
     plt.savefig(output_path)
     plt.close()
 
-def community_clique_average_axes(dist_dirs, filename):
+def community_clique_median_axes(dist_dirs, filename):
     '''
 
     two lists one with the coordinates for the y axis of the
-    average distances for a clique and the other for a community.
+    median distances for a clique and the other for a community.
 
 
     '''
@@ -533,10 +536,10 @@ def community_clique_average_axes(dist_dirs, filename):
                         comm_y_axis.append(float(row['distance']))
     return clq_y_axis, comm_y_axis
 
-def average_similarity_clique_community_size_graph(user_topics_dir):
+def median_similarity_clique_community_size_graph(user_topics_dir):
     '''
 
-    graph displaying the average distances compared to community size
+    graph displaying the median distances compared to community size
     sets up the axes for drawing other graphs
 
     ** currently only draws graphs using jensen shannon divergence
@@ -545,7 +548,7 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
     > get_num_communities_jsd()
     > draw_num_communities_range_graph()
     > draw_num_clq_comm_int_range_graph()
-    > distributed_average_similarity_clique_community_size_graph()
+    > distributed_median_similarity_clique_community_size_graph()
 
     '''
     clq_x_axis = []
@@ -560,14 +563,14 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
     comm_divs = defaultdict(list)
 
     fieldnames = ['metric', 'distance']
-    print('Drawing clique/community size to average distance graph using Jensen Shannon divergence')
+    print('Drawing clique/community size to median distance graph using Jensen Shannon divergence')
 
     for path, dirs, files in os.walk(user_topics_dir):
         for community in sorted(dirs):
             with open(path + community + '/community_doc_vecs.json', 'r') as comm_doc_vecs_file:
                 comm_doc_vecs = json.load(comm_doc_vecs_file)
 
-            with open(path + community + '/distance_info/community_average_distances', 'r') as avg_dist_file:
+            with open(path + community + '/distance_info/community_median_distances', 'r') as avg_dist_file:
                 csv_reader = csv.DictReader(avg_dist_file, delimiter='\t', fieldnames=fieldnames)
                 for row in csv_reader:
                     if(row['metric'] == 'jensen_shannon'):
@@ -582,7 +585,7 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
                             comm_x_axis.append(len(comm_doc_vecs))
                             int_comm_dists_range = get_num_communities_jsd(float(row['distance']), int_comm_dists_range)
 
-            with open(path + community + '/distance_info/external_average_distances', 'r') as ext_dist_file:
+            with open(path + community + '/distance_info/external_median_distances', 'r') as ext_dist_file:
                 csv_reader = csv.DictReader(ext_dist_file, delimiter='\t', fieldnames=fieldnames)
                 for row in csv_reader:
                     if(row['metric'] == 'jensen_shannon'):
@@ -596,22 +599,22 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
         draw_num_clq_comm_int_range_graph(user_topics_dir, ext_clq_dists_range, ext_comm_dists_range, 'Clique & Community External Divergence Distribution', 'Clique', 'Community', 'clq_comm_ext_dist_avg_range')
         draw_num_clq_comm_int_range_graph(user_topics_dir, int_clq_dists_range, ext_clq_dists_range, 'Clique Internal & External Divergence Distribution', 'Internal', 'External', 'clq_int_ext_dist_avg_range')
         draw_num_clq_comm_int_range_graph(user_topics_dir, int_comm_dists_range, ext_comm_dists_range, 'Community Internal & External Divergence Distribution', 'Internal', 'External', 'comm_int_ext_dist_avg_range')
-        distributed_average_similarity_clique_community_size_graph(user_topics_dir, clq_divs, comm_divs)
+        distributed_median_similarity_clique_community_size_graph(user_topics_dir, clq_divs, comm_divs)
 
-        plt.ylabel('Average Jensen Shannon divergence')
+        plt.ylabel('Median Jensen Shannon divergence')
         plt.xlabel('Size of Community')
-        plt.title('Average Community Similarity')
-        output_path = user_topics_dir + 'community_size_average_divergence'
+        plt.title('Median Community Similarity')
+        output_path = user_topics_dir + 'community_size_median_divergence'
         plt.scatter(comm_x_axis, comm_y_axis)
         plt.ylim([0, np.log(2) + .001])
         plt.xlim([0, max(comm_x_axis) + 1])
         plt.savefig(output_path)
         plt.close()
 
-        plt.ylabel('Average Jensen Shannon Divergence')
+        plt.ylabel('Median Jensen Shannon Divergence')
         plt.xlabel('Size of Clique')
-        plt.title('Average Clique Divergence')
-        output_path = user_topics_dir + 'clique_size_average_divergence'
+        plt.title('Median Clique Divergence')
+        output_path = user_topics_dir + 'clique_size_median_divergence'
         plt.scatter(clq_x_axis, clq_y_axis)
         plt.ylim([0, np.log(2) + .001])
         plt.xlim([0, max(clq_x_axis) + 1])
@@ -623,7 +626,7 @@ def average_similarity_clique_community_size_graph(user_topics_dir):
 def draw_num_communities_range_graph(user_topics_dir, int_clq, ext_clq, int_comm, ext_comm):
     '''
 
-    graph displaying internal and external distribution for average distances/divergences
+    graph displaying internal and external distribution for median distances/divergences
     for all communities and cliques in dataset
 
     ** currently only displays results for jensen shannon divergence
@@ -653,7 +656,7 @@ def get_num_communities_jsd(distance, avg_dists_range):
     '''
 
     list of integers showing the amount of cliques/communities whose
-    average distances/divergences fall within a set of ranges
+    median distances/divergences fall within a set of ranges
 
     '''
     grp_1 = grp_2 = grp_3 = grp_4 = grp_5 = grp_6 = grp_7 = 0
@@ -678,7 +681,7 @@ def get_num_communities_jsd(distance, avg_dists_range):
 def draw_num_clq_comm_int_range_graph(user_topics_dir, dists_1, dists_2, title, lg_lbl_1, lg_lbl_2, out_name):
     '''
 
-    graph displaying difference in distribution of internal average clique vs average community
+    graph displaying difference in distribution of internal median clique vs median community
     distances/divergences which fall into set of ranges
 
     ** currently only displays distribution for jensen shannon divergence 
@@ -702,11 +705,11 @@ def draw_num_clq_comm_int_range_graph(user_topics_dir, dists_1, dists_2, title, 
     plt.savefig(user_topics_dir + out_name)
     plt.close(fig)
 
-def distributed_average_similarity_clique_community_size_graph(user_topics_dir, clq_divs, comm_divs):
+def distributed_median_similarity_clique_community_size_graph(user_topics_dir, clq_divs, comm_divs):
     '''
 
-    graph displays the average of the internal clique and internal
-    community average distance/divergence compared to the size of the clique or community
+    graph displays the median of the internal clique and internal
+    community median distance/divergence compared to the size of the clique or community
 
     ** currently only displays the jensen shannon divergence
 
@@ -715,11 +718,11 @@ def distributed_average_similarity_clique_community_size_graph(user_topics_dir, 
     clq_y_axis = []
     comm_x_axis = []
     comm_y_axis = []
-    print('Drawing clique/community size to distributed average divergence graph')
+    print('Drawing clique/community size to distributed median divergence graph')
 
-    plt.ylabel('Average Jensen Shannon Divergence\n')
+    plt.ylabel('Median Jensen Shannon Divergence\n')
     plt.xlabel('Size of Community/Clique')
-    plt.title('Average Community/Clique Similarity Distribution')
+    plt.title('Median Community/Clique Similarity Distribution')
 
     for clq_size in clq_divs:
         clq_x_axis.append(clq_size)
@@ -729,13 +732,12 @@ def distributed_average_similarity_clique_community_size_graph(user_topics_dir, 
         comm_x_axis.append(comm_size)
         comm_y_axis.append(np.mean(comm_divs[comm_size]))
 
-    output_path = user_topics_dir + 'clique_community_size_distributed_average_divergence'
+    output_path = user_topics_dir + 'clique_community_size_distributed_median_divergence'
     plt.scatter(clq_x_axis, clq_y_axis, marker='x', color='g')
     plt.scatter(comm_x_axis, comm_y_axis, marker='.', color='b')
-    plt.legend(['clique', 'community',], loc='upper center', ncol=2)
     plt.ylim([0, np.log(2) + .001])
     plt.xlim([0, max(comm_x_axis) + 1])
-    plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+    plt.legend(['Clique', 'Community'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
     plt.subplots_adjust(bottom=0.2)
     plt.savefig(output_path)
     plt.close()
@@ -818,10 +820,10 @@ def delete_inactive_users(community):
         json.dump(comm_doc_vecs, comm_doc_vecs_file, sort_keys=True, indent=4)
     
 def dir_to_iter(user_topics_dir):
-     for path, dirs, files in os.walk(user_topics_dir):
-         for community in sorted(dirs):
-             yield(path + community)
-         break
+    for path, dirs, files in os.walk(user_topics_dir):
+        for community in dirs:
+            yield(path + community)
+        break
 
 def main(user_topics_dir):
     '''
@@ -837,12 +839,13 @@ def main(user_topics_dir):
     pool.map(delete_inactive_communities, dir_to_iter(user_topics_dir))
 
     pool.map(community_user_distances, dir_to_iter(user_topics_dir))
+    pool.map(community_median_distances, dir_to_iter(user_topics_dir))
 
     pool.map(user_to_internal_users_graph, dir_to_iter(user_topics_dir)) 
 
     func = partial(user_to_external_users_graph, user_topics_dir)
     pool.map(func, dir_to_iter(user_topics_dir))
- 
+
     pool.map(user_internal_external_distance, dir_to_iter(user_topics_dir))
 
     pool.map(num_users_distance_range_graph, dir_to_iter(user_topics_dir))
@@ -851,8 +854,8 @@ def main(user_topics_dir):
 
     pool.terminate()
  
-    community_average_internal_external_distance(user_topics_dir)
-    average_similarity_clique_community_size_graph(user_topics_dir)
+    community_median_internal_external_distance(user_topics_dir)
+    median_similarity_clique_community_size_graph(user_topics_dir)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1]))
