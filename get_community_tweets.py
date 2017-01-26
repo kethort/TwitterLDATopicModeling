@@ -23,6 +23,7 @@ def get_access_creds():
                 api = get_api(credentials)
                 if(verify_working_credentials(api)):
                     auths.append(api)
+                credentials = []
     return auths
 
 def get_api(credentials):
