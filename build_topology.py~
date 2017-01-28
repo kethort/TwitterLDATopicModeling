@@ -1,0 +1,32 @@
+#!/usr/bin/python
+# https://dev.twitter.com/overview/api/response-codes
+import sys
+import tweepy
+import unicodedata
+import os
+import ast
+import json
+import pyprind
+from collections import defaultdict
+
+def get_followers(user_id, api):
+    followers = []
+    while True:
+        try:
+            cursor = tweepy.Cursor(api.followers, id=user_id).pages()
+            for page in cursor:
+                followers += page
+
+        except tweepy.TweepError as e:
+            pass
+
+        except Exception as e:
+            print(str(e))
+                
+        finally:
+            return tweets
+
+def main():
+
+if __name__ == '__main__':
+    sys.exit(main())

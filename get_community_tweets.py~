@@ -9,6 +9,38 @@ import json
 import pyprind
 import oauth_handler as auth
 
+def unfollow_users(comm_set, api):
+    ''' 
+        requires developer read/write permissions
+        enabled in application settings
+    '''
+    for user_id in comm_set:
+        try:
+            api.destroy_friendship(user_id) 
+            print(str(developer_id) + ' unfollowed ' + str(user_id))
+
+        except tweepy.TweepError as e:
+            pass
+
+        except Exception as e:
+            print(str(e))
+    
+def follow_users(comm_set, api):
+    ''' 
+        requires developer read/write permissions
+        enabled in application settings
+    '''
+    for user_id in comm_set:
+        try:
+            api.create_friendship(user_id) 
+            print(str(developer_id) + ' now following ' + str(user_id))
+
+        except tweepy.TweepError as e:
+            pass
+
+        except Exception as e:
+            print(str(e))
+
 def get_tweets(user_id, api):
     tweets = []
     while True:
