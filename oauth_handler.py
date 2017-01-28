@@ -7,15 +7,12 @@ def get_access_creds():
     '''
         Twitter API authentication credentials are stored in a file as:
         
-        consumer_key
-        consumer_secret
-        access_token
-        access_secret 
-
-        with a space in between each set
+            consumer_key
+            consumer_secret
+            access_token
+            access_secret 
     '''
     credentials = []
-    auths = []
 
     print('Building list of developer access credentials...')
     with open('twitter_dev_accounts.txt', 'r') as infile:
@@ -24,10 +21,8 @@ def get_access_creds():
                 credentials.append(line.strip())
             else:
                 api = get_api(credentials)
-                if(verify_working_credentials(api)):
-                    auths.append(api)
-                credentials = []
-    return auths
+                verify_working_credentials(api)
+    return api
 
 def get_api(credentials):
     consumer_key = credentials[0]
@@ -37,10 +32,10 @@ def get_api(credentials):
     
     auth = tweepy.auth.OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_secret)
-    api = tweepy.API(auth)
+    api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
     return api
-    
+
 def verify_working_credentials(api):
     verified = True
 
@@ -55,27 +50,3 @@ def verify_working_credentials(api):
 
     finally:
         return verified
-
-def manage_auth_handlers(oauths):
-    index = 0
-    while True:
-        api = oauths[index]
-
-        try:
-            limit = api.rate_limit_status()
-            status_limit = limit['resources']['statuses']['/statuses/user_timeline']['remaining']
-            if status_limit > 100:
-                return api
-
-        except tweepy.TweepError as e:
-            pass
-
-        except Exception as e:
-            print(str(e))
-
-        finally:
-            if index == (len(oauths) - 1):
-                index = 0
-            else:
-                index += 1
-
