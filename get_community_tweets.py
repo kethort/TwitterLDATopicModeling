@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # https://dev.twitter.com/overview/api/response-codes
 import sys
+import os
 import tweepy
 import unicodedata
-import os
 import ast
 import json
 import pyprind

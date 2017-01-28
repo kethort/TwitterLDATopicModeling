@@ -1,18 +1,12 @@
 #!/usr/bin/python
-# https://dev.twitter.com/overview/api/response-codes
 import sys
 import tweepy
-import unicodedata
-import os
-import ast
-import json
-import pyprind
 import oauth_handler as auth
 
 def unfollow_users(comm_set, api):
     ''' 
         requires developer read/write permissions
-        enabled in application settings
+        enabled in Twitter dev application settings
     '''
     for user_id in comm_set:
         try:
@@ -28,7 +22,7 @@ def unfollow_users(comm_set, api):
 def follow_users(comm_set, api):
     ''' 
         requires developer read/write permissions
-        enabled in application settings
+        enabled in Twitter dev application settings
     '''
     for user_id in comm_set:
         try:
@@ -59,7 +53,7 @@ def get_followers(user_id, api):
             return tweets
 
 def main(location):
-
+    
 
 if __name__ == '__main__':
     sys.exit(main(location))

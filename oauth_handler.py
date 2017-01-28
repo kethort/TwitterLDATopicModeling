@@ -1,10 +1,19 @@
 #!/usr/bin/python
 # https://dev.twitter.com/overview/api/response-codes
-import sys, os
+import sys
 import tweepy
 
-# populate access credentials into list
 def get_access_creds():
+    '''
+        Twitter API authentication credentials are stored in a file as:
+        
+        consumer_key
+        consumer_secret
+        access_token
+        access_secret 
+
+        with a space in between each set
+    '''
     credentials = []
     auths = []
 
