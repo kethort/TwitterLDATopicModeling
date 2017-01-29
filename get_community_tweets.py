@@ -11,21 +11,22 @@ import oauth_handler as auth
 
 def get_tweets(user_id, api):
     tweets = []
+    cursor = tweepy.Cursor(api.user_timeline, user_id).pages()
+
     while True:
         try:
-            cursor = tweepy.Cursor(api.user_timeline, user_id).pages()
             for page in cursor:
                 tweets += page
+            break
 
         except tweepy.TweepError as e:
             #print(e.message[0]['message'])
-            pass
+            continue
 
         except Exception as e:
             print(str(e))
 
-        finally:
-            return tweets
+    return tweets
             
 def user_status_count(user_id, api):
     count = 0
@@ -52,7 +53,7 @@ def write_tweets(tweets, tweet_filename):
 def main(topology):
     inactive_users = {}
     active_users = {}
-    oauths = auth.get_access_creds()
+    _, app_auths = auth.get_access_creds()
     tweets_dir = './dnld_tweets/'
 
     with open(topology, 'r') as inp_file:
@@ -66,7 +67,7 @@ def main(topology):
         user = comm_set.pop()
         bar.update(item_id=user)
     
-        api = auth.manage_auth_handlers(oauths)
+        api = auth.manage_auth_handlers(app_auths)
 
         # skip user who doesn't Tweet much 
         status_count = user_status_count(user, api)

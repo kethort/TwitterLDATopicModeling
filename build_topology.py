@@ -36,60 +36,67 @@ def follow_users(comm_set, api):
         except Exception as e:
             print(str(e))
 
-def get_followers(user_id, api):
+def get_followers(user_id, app_auths):
     followers = []
-
+    api = auth.manage_auth_handlers(app_auths)
+    
+    cursor = tweepy.Cursor(api.followers_ids, id=user_id).pages()
+    print(user_id)
     while True:
         try:
-            cursor = tweepy.Cursor(api.followers_ids, id=user_id).pages()
             for page in cursor:
-                followers.extend(page)
+                followers += page
+            break
 
         except tweepy.TweepError as e:
-            pass
+            continue
 
-        except Exception as e:
-            print(str(e))
+        except StopIteration:
+            break
                 
-        finally:
-            return followers
+    print(len(followers))
+    return followers
 
-def get_user_ids(location, num_tweets, api):
+def get_user_ids(search_query, location, app_auths):
     users = [] 
-    places = api.geo_search(query=location)
-    search_query = 'place:' + str(places[0].id)
+    api = auth.manage_auth_handlers(app_auths)
 
+    cursor = tweepy.Cursor(api.search, q=search_query).items()
     while True:
         try:
-            items = tweepy.Cursor(api.search, q=search_query).items(num_tweets)
-            for item in items:
+            for item in cursor:
                 user = item.user.id
                 print(user)
                 if user not in users:
-                    users.append(item.user.id)
+                    users.append(user)
+            if len(users) > 10000:
+                break
             
         except tweepy.TweepError as e:
-            pass
+            continue
 
-        except Exception as e:
-            print(str(e))
-                
-        finally:
-            return users
+        except StopIteration:
+            break
 
-def main(location, num_users):
-    api = auth.get_access_creds()
+    print('length: ' + str(len(users)))     
+    return users
 
+def main(location):
     users_by_loc = {}
-    users = get_user_ids(location, num_users, api)
+    oauths, app_auths = auth.get_access_creds()
+
+    api = auth.manage_auth_handlers(oauths)
+    places = api.geo_search(query=location)
+    search_query = 'place:' + str(places[0].id)
+
+    users = get_user_ids(search_query, location, app_auths)
 
     for user in users:
         if user not in users_by_loc:
-            api = auth.manage_auth_handlers(oauths)
-            users_by_loc[user] = get_followers(user, api)
+            users_by_loc[user] = get_followers(user, app_auths)
 
     with open('users_in_' + location, 'w') as outfile:
         json.dump(users_by_loc, outfile, sort_keys=True, indent=4)
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1], sys.argv[2]))
+    sys.exit(main(sys.argv[1]))
