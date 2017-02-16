@@ -16,6 +16,6 @@ This project uses two topologies generated in 2014 by another student using Pyth
 Users who have less than 5 Tweets on their timeline are considered inactive and are omitted from the data set. Users who have restricted access to their timeline are regarded as not having any Tweets on their timeline. Omitting these users removes 1286 users from the data set leaving 23,552 unique users. The resulting minimum clique size is 2, average clique size is 5 and maximum clique size is 36. The resulting minimum community size is 3, average community size is 30 and maximum community size is 318. The following graphs represent the distribution of clique and community sizes. 
 
 <p align="center">
-  <img src="/img/clique_size_distribution.png" style="float:left; width:350; margin-right:1%;"/>
+  <img src="/img/clique_size_distribution.png" width="350"/><img src="/img/community_size_distribution.png" width="350"/>
 </p>
 
