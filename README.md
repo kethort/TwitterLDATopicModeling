@@ -26,3 +26,4 @@ Users who have less than 5 Tweets on their timeline are considered inactive and 
 </p>
 
 ## Approach
+### Creating the model
