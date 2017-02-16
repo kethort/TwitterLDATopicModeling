@@ -13,7 +13,7 @@ This project uses two topologies generated in 2014 by another student using Pyth
   <img src="/img/topology.png" width="500"/>
 </p>
 
-One topology represents condensed communities which will be referred to as a clique, and the other topology file contains larger cliques which will be referred to as a community. The topologies being used contain 1897 communities each. Users can belong to more than one community and the total amount of unique users in the entire data set is 24,838. The Twitter API allows a maximum of 3,200 of the most recent Tweets to be downloaded from each user's timeline. The average amount of Tweets downloaded for each unique user in the data set is 1462. The following graph shows the distribution of Tweets across all users' timelines. 
+One topology represents condensed communities which will be referred to as a clique, and the other topology file contains larger cliques which will be referred to as a community. The topologies being used contain 1897 communities each. Users can belong to more than one community and the total amount of unique users in the entire data set is 24,838. The Twitter API allows a maximum of 3,200 of the most recent Tweets to be downloaded from each user's timeline. The average amount of Tweets downloaded for each unique user in the data set is 1462. The following graph shows the distribution of the total amount of Tweets across all users' timelines. 
 
 <p align="center">
   <img src="/img/tweet_distribution.png" width="500"/>
