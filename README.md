@@ -25,5 +25,9 @@ Users who have less than 5 Tweets on their timeline are considered inactive and 
   <img src="/img/clique_size_distribution.png" width="350"/><img src="/img/community_size_distribution.png" width="350"/>
 </p>
 
-## Approach
+## Process
+### Overview
+<p align="center">
+  <img src="/img/process.png" width="500"/>
+</p>
 ### Creating the model
