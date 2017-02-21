@@ -19,9 +19,9 @@ ignore_words = set(stopwords.words('english'))
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
-def preprocess_tweet(tweet):
-    with open(tweet, 'r') as infile:
-        # transform tweet document into one string
+def preprocess_doc(document):
+    with open(document, 'r') as infile:
+        # transform document into one string
         text = ' '.join(line.rstrip('\n') for line in infile)
     # remove emoji's
     try:
@@ -50,7 +50,7 @@ def list_to_gen(directory):
 class DocumentCorpus(gensim.corpora.TextCorpus):
     def get_texts(self):
         pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
-        for tokens in pool.imap(preprocess_tweet, list_to_gen(self.input)):
+        for tokens in pool.imap(preprocess_doc, list_to_gen(self.input)):
             yield tokens
         pool.terminate()
 
@@ -78,7 +78,7 @@ def build_pyLDAvis_output(corp_loc, dict_loc, lda_loc):
 # corp_loc: name of output corpus, output_dict: name of output dictionary,
 # num_topics: number of topics for model, output_model: name/location of output model
 
-# python2.7 create_LDA_model.py t dnld_tweets/ doc_corpus tweet_dict 100 lda_model
+# python2.7 create_LDA_model.py t docs_dir/ corpus dictionary 100 lda_model
 def main():
     parser = argparse.ArgumentParser(description='Create a corpus from a collection of documents and/or build an LDA model')
     subparsers = parser.add_subparsers(dest='mode')
