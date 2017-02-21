@@ -33,6 +33,10 @@ After downloading all of the Tweets for each user in the data set, the result is
   <img src="/img/process.png" width="500"/>
 </p>
 
-### Creating the model
-Using Python and the Gensim library, an LDA model can be generated using a collection of documents selected as a training set. It's important, when selecting a corpus as a training set, to choose a collection of documents that would be good at explaining or categorizing the collected data. For example, if the source of the collected data comes from a forum about hunting, a good corpus to use to train the model might be a magazine subscription about outdoor activities. Since it's not possible to know what randomly selected Twitter users will be discussing, a more broadly defined categorical source must be selected for the corpus. In this project, the entire Wikipedia articles dump was selected. 
+### Creating the Model
+Using Python and the Gensim library, an LDA model can be generated from a collection of documents selected as a training set. When selecting a corpus as a training set for this project, the approach was to choose a collection of documents that would be good at explaining or categorizing the collected data. For example, if the source of the collected data comes from a forum about hunting, a good corpus to use to train the model might be a magazine subscription about outdoor activities. Since it's not possible to know what randomly selected Twitter users will be discussing, a more broadly defined categorical source must be selected for the corpus. In this project, the entire Wikipedia articles repository was selected. 
+
+#### Preprocess the Training Set
+
+#### Transform the Text into Indexable Corpus
  
