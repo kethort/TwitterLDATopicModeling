@@ -28,15 +28,20 @@ def preprocess_tweet(tweet):
         reg_ex = re.compile(u'([\U0001F300-\U0001F64F])|([\U0001F680-\U0001F6FF])|([\U00002600-\U000027BF])')
     except:
         reg_ex = re.compile(u'([\u2600-\u27BF])|([\uD83C][\uDF00-\uDFFF])|([\uD83D][\uDC00-\uDE4F])|([\uD83D][\uDE80-\uDEFF])')
-    # remove URLS
-    text = reg_ex.sub('', text)
+    # remove URL's
     text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', text)
-    # remove hashtag symbol
-    text = re.sub(r'[^\w]', ' ', text) 
+
+    # concatenate conjunctions
     text = text.replace("'", "")
-    # remove stopwords and lemmatize
-    #return list(gensim.utils.lemmatize(text, allowed_tags=re.compile('(NN)'), stopwords=ignore_words, min_length=3))
-    return list(gensim.utils.lemmatize(text, stopwords=ignore_words, min_length=3))
+
+    # remove symbols excluding the @ symbol
+    text = re.sub(r'[^\w@]', ' ', text)
+
+    # remove @username's
+    text = re.sub(r'(\s)@\w+', r'\1', text)
+    
+    # remove stopwords, lemmatize and filter for nouns
+    return list(gensim.utils.lemmatize(text, allowed_tags=re.compile('(NN)'), stopwords=ignore_words, min_length=3))
 
 def list_to_gen(directory):
     for filename in os.listdir(directory):
