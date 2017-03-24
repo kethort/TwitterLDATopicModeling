@@ -38,13 +38,14 @@ After downloading all of the Tweets for each user in the data set, the result is
 When selecting a corpus as a training set for this project, the approach was to choose a collection of documents that would be good at explaining or categorizing the collected data. For example, if the source of the collected data comes from a forum about hunting, a good corpus to use to train the model might be a magazine subscription about outdoor activities. Since it's not possible to know what randomly selected Twitter users will be discussing, a more broadly defined categorical source must be selected for the corpus. In this project, the entire Wikipedia articles repository was selected. 
 
 #### Preprocess the Training Set
-The Wikipedia articles are downloaded from an FTP repository as one large compressed XML file. Gensim contains a class that can automatically extract each article from the XML file, tokenize the words in each article, and add each article to a corpus. For this project, I chose to lemmatize the words in the corpus and select only words that are nouns to be added. I also used the large stopword list from http://www.ranks.nl/stopwords to filter the corpus. 
+The Wikipedia articles were downloaded from an FTP repository as one large compressed XML file. Gensim contains a class that can automatically extract each article from the XML file, tokenize the words in each article, and add each article to a corpus. For this project, I chose to lemmatize the words in the corpus and select only words that are nouns to be added. I also used the large stopword list from http://www.ranks.nl/stopwords to filter the corpus. 
 
 #### Dictionary
 The dictionary is derived from the corpus. It represents the total vocabulary that the model will have. I chose to limit the dictionary to 100,000 words and I also chose to omit words that occurred in less than 5 articles or more than 5% of all the articles. 
 
 #### Model
-The model was trained with the number of topics set to 100 using an asymmetric prior and requiring 5 passes through the training corpus. The other parameters for training the model were set to their default values.
+The model was trained with the number of topics set to 100 using an asymmetric prior and requiring 5 passes through the corpus. The other parameters for training the model were set to their default values.
+
 
 
 
