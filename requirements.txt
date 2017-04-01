@@ -7,5 +7,6 @@ nltk==3.2.1
 numpy==1.11.2
 Pattern==2.6
 pyLDAvis==2.1.0
+PyPrind==2.9.9
 scipy==0.18.1
 tweepy==3.5.0
