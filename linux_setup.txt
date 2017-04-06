@@ -38,8 +38,8 @@ printf 'd\nstopwords\nq' | python -c 'import nltk; nltk.download()'
 chmod +x patch_env_modules.sh
 ./patch_env_modules.sh
 
+# install Amazon AWS CLI
+sudo apt-get install awscli
 
-
-
-
-
+# configure AWS keys and S3 location
+aws configure
