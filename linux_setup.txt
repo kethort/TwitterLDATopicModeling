@@ -43,3 +43,6 @@ sudo apt-get install awscli
 
 # configure AWS keys and S3 location
 aws configure
+
+# ssh into ec2
+ssh -i ../AWS_Keys/boto_key_pair.pem ubuntu@ec2-54-82-228-233.compute-1.amazonaws.com
