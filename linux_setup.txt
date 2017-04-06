@@ -3,19 +3,14 @@
 
 sudo apt-get -y update
 sudo apt-get -y upgrade
-sudo apt-get -y install vim
 
 # install accelerated BLAS environment 
 # openBLAS should be there by default...just in case
-sudo apt-get -y install build-essential
-sudo apt-get -y install libblas-dev liblapack-dev libatlas-base-dev gfortran
-sudo apt-get -y install python-dev
-sudo apt-get -y install libfreetype6-dev libxft-dev
+sudo apt-get -y install vim git build-essential libblas-dev liblapack-dev libatlas-base-dev gfortran python-dev libfreetype6-dev libxft-dev awscli
 export LAPACK=/usr/lib/liblapack.so
 export ATLAS=/usr/lib/libatlas.so
 
 # download the repository
-sudo apt-get -y install git
 git clone https://www.github.com/kenneth-orton/twitter_LDA_topic_modeling
 
 # create virtual_env and install requirements
@@ -37,9 +32,6 @@ printf 'd\nstopwords\nq' | python -c 'import nltk; nltk.download()'
 
 chmod +x patch_env_modules.sh
 ./patch_env_modules.sh
-
-# install Amazon AWS CLI
-sudo apt-get install awscli
 
 # configure AWS keys and S3 location
 aws configure
