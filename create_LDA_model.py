@@ -11,6 +11,7 @@ from gensim.corpora import MmCorpus, Dictionary, WikiCorpus
 from gensim import models
 from pyLDAvis import gensim as gensim_vis
 import argparse
+from nltk.tokenize import TweetTokenizer
 
 DEFAULT_DICT_SIZE = 100000
 
@@ -19,38 +20,34 @@ ignore_words = set(stopwords.words('english'))
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
-def preprocess_doc(document):
+def preprocess_tweet(document):
     with open(document, 'r') as infile:
         # transform document into one string
         text = ' '.join(line.rstrip('\n') for line in infile)
-    # remove emoji's
-    try:
-        reg_ex = re.compile(u'([\U0001F300-\U0001F64F])|([\U0001F680-\U0001F6FF])|([\U00002600-\U000027BF])')
-    except:
-        reg_ex = re.compile(u'([\u2600-\u27BF])|([\uD83C][\uDF00-\uDFFF])|([\uD83D][\uDC00-\uDE4F])|([\uD83D][\uDE80-\uDEFF])')
+    # convert string into unicode
+    text = gensim.utils.any2unicode(text)
+
     # remove URL's
     text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', text)
 
-    # concatenate conjunctions
-    text = text.replace("'", "")
-
-    # remove symbols excluding the @ symbol
-    text = re.sub(r'[^\w@]', ' ', text)
-
-    # remove @username's
-    text = re.sub(r'(\s)@\w+', r'\1', text)
+    # remove symbols excluding the @, # and \s symbol
+    text = re.sub(r'[^\w@#\s]', ' ', text)
     
-    # remove stopwords, lemmatize and filter for nouns
-    return list(gensim.utils.lemmatize(text, allowed_tags=re.compile('(NN)'), stopwords=ignore_words, min_length=3))
+    # tokenize words using NLTK Twitter Tokenizer
+    tknzr = TweetTokenizer()
+    text = tknzr.tokenize(text)
+
+    # lowercase & remove stopwords in tokenized list
+    return [word.lower() for word in text if word > 2 and word not in ignore_words]
 
 def list_to_gen(directory):
     for filename in os.listdir(directory):
         yield directory + str(filename)
 
-class DocumentCorpus(gensim.corpora.TextCorpus):
+class TweetCorpus(gensim.corpora.TextCorpus):
     def get_texts(self):
         pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
-        for tokens in pool.imap(preprocess_doc, list_to_gen(self.input)):
+        for tokens in pool.imap(preprocess_tweet, list_to_gen(self.input)):
             yield tokens
         pool.terminate()
 
@@ -105,7 +102,7 @@ def main():
     args = parser.parse_args()
 
     if args.mode == 'text':
-        doc_corpus = DocumentCorpus(args.docs_loc)
+        doc_corpus = TweetCorpus(args.docs_loc)
 
         # ignore words that appear in less than 5 documents or more than 5% of documents
         doc_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
