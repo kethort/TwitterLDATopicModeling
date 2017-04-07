@@ -25,7 +25,7 @@ source venv/bin/activate
 
 # check for BLAS installation
 pip install -r requirements.txt
-python -c 'import numpy; numpy.show()_config()'
+python -c 'import numpy; numpy.show_config()'
 
 # patch Gensim modules and download stopword lists
 printf 'd\nstopwords\nq' | python -c 'import nltk; nltk.download()'
