@@ -54,11 +54,11 @@ class TweetCorpus(gensim.corpora.TextCorpus):
             yield tokens
         pool.terminate()
 
-def build_LDA_model(corp_loc, dict_loc, num_topics, lda_loc):
+def build_LDA_model(corp_loc, dict_loc, num_topics, num_pass, lda_loc):
     corpus = MmCorpus(corp_loc) 
     dictionary = Dictionary.load(dict_loc)
 
-    lda = gensim.models.LdaMulticore(corpus=corpus, id2word=dictionary, num_topics=int(num_topics), alpha='asymmetric', passes=5)
+    lda = gensim.models.LdaMulticore(corpus=corpus, id2word=dictionary, num_topics=int(num_topics), alpha='asymmetric', passes=int(num_pass))
     lda.save(lda_loc + '.model')
 
     build_pyLDAvis_output(corp_loc, dict_loc, lda_loc)
@@ -95,6 +95,7 @@ def main():
     lda_model_parser.add_argument('-c', '--corp_loc', required=True, action='store', dest='corp_loc', help='Location of corpus')
     lda_model_parser.add_argument('-d', '--dict_loc', required=True, action='store', dest='dict_loc', help='Location of dictionary')
     lda_model_parser.add_argument('-n', '--num_topics', required=True, action='store', dest='num_topics', help='Number of topics to assign to LDA model')
+    lda_model_parser.add_argument('-p', '--num_pass', required=True, action='store', dest='num_pass', help='Number of passes through corpus when training the LDA model')
     lda_model_parser.add_argument('-l', '--lda_loc', required=True, action='store', dest='lda_loc', help='Location and name to save LDA model')
 
     lda_vis_parser = subparsers.add_parser('ldavis', help='Create visualization of LDA model')
@@ -121,7 +122,7 @@ def main():
         wiki_corpus.dictionary.save(args.corp_loc + '.dict')
 
     if args.mode == 'lda':
-        build_LDA_model(args.corp_loc, args.dict_loc, args.num_topics, args.lda_loc)
+        build_LDA_model(args.corp_loc, args.dict_loc, args.num_topics, args.num_pass, args.lda_loc)
 
     if args.mode == 'ldavis':
         build_pyLDAvis_output(args.corp_loc, args.dict_loc, args.lda_loc)
