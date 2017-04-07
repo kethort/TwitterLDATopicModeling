@@ -12,10 +12,10 @@ from gensim import models
 from pyLDAvis import gensim as gensim_vis
 import argparse
 from nltk.tokenize import TweetTokenizer
+from nltk.corpus import stopwords
+
 
 DEFAULT_DICT_SIZE = 100000
-
-from nltk.corpus import stopwords
 ignore_words = set(stopwords.words('english'))
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)

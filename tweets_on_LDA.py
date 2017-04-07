@@ -12,6 +12,7 @@ import click
 import subprocess
 import multiprocessing
 from functools import partial
+from nltk.tokenize import TweetTokenizer
 
 # http://stackoverflow.com/questions/15365046/python-removing-pos-tags-from-a-txt-file
 def write_topn_words(user_topics_dir, lda_model):
@@ -38,21 +39,30 @@ def combine_vector_dictionaries(user_topics_dir, community_doc_vecs):
     with open(user_topics_dir + 'all_community_doc_vecs.json', 'w') as all_community_doc_vecs_file:
         json.dump(all_community_doc_vecs, all_community_doc_vecs_file, sort_keys=True, indent=4)
 
-def preprocess_text(tweetpath):
-    with open(tweetpath, 'r') as infile:
+def preprocess_tweet(document):
+    with open(document, 'r') as infile:
+        # transform document into one string
         text = ' '.join(line.rstrip('\n') for line in infile)
-    # remove emoji's and links from tweets
-    # http://stackoverflow.com/questions/26568722/remove-unicode-emoji-using-re-in-python
-    try:
-        reg_ex = re.compile(u'([\U0001F300-\U0001F64F])|([\U0001F680-\U0001F6FF])|([\U00002600-\U000027BF])')
-    except:
-        reg_ex = re.compile(u'([\u2600-\u27BF])|([\uD83C][\uDF00-\uDFFF])|([\uD83D][\uDC00-\uDE4F])|([\uD83D][\uDE80-\uDEFF])')
-    text = reg_ex.sub('', text)
-    # http://stackoverflow.com/questions/11331982/how-to-remove-any-url-within-a-string-in-python
+    # convert string into unicode
+    text = gensim.utils.any2unicode(text)
+
+    # remove URL's
     text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', text)
-    text = re.sub(r'[^\w]', ' ', text) # remove hashtag
-    #return list(utils.simple_preprocess(text, deacc=True, min_len=2, max_len=15))
-    return utils.lemmatize(text)
+
+    # remove symbols excluding the @, # and \s symbol
+    text = re.sub(r'[^\w@#\s]', '', text)
+    
+	#return utils.lemmatize(text)
+
+    # tokenize words using NLTK Twitter Tokenizer
+    tknzr = TweetTokenizer()
+    text = tknzr.tokenize(text)
+
+    # lowercase, remove words less than len 2 & remove numbers in tokenized list
+    text = [word.lower() for word in text if len(word) > 2 and not word.isdigit()]
+
+    # remove stopwords
+    return [word for word in text if not word in ignore_words]
 
 def get_document_vectors(user_id, **kwargs):
     if 'clique' in user_id:
@@ -64,7 +74,7 @@ def get_document_vectors(user_id, **kwargs):
         return
 
     if not user_id in kwargs['all_comm_doc_vecs']:
-        document = preprocess_text(tweetpath)
+        document = preprocess_tweet(tweetpath)
 
         # if after preprocessing the list is empty then skip that user
         if not document:
