@@ -9,6 +9,7 @@ import multiprocessing
 import gensim
 from gensim.corpora import MmCorpus, Dictionary, WikiCorpus
 from gensim import models
+import pyLDAvis
 from pyLDAvis import gensim as gensim_vis
 import argparse
 from nltk.tokenize import TweetTokenizer
