@@ -31,14 +31,14 @@ def preprocess_tweet(document):
     text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', text)
 
     # remove symbols excluding the @, # and \s symbol
-    text = re.sub(r'[^\w@#\s]', ' ', text)
+    text = re.sub(r'[^\w@#\s]', '', text)
     
     # tokenize words using NLTK Twitter Tokenizer
     tknzr = TweetTokenizer()
     text = tknzr.tokenize(text)
 
     # lowercase & remove stopwords in tokenized list
-    return [word.lower() for word in text if word > 2 and word not in ignore_words]
+    return [word.lower() for word in text if len(word) > 2 and word not in ignore_words]
 
 def list_to_gen(directory):
     for filename in os.listdir(directory):
