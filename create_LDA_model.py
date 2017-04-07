@@ -80,11 +80,11 @@ def build_pyLDAvis_output(corp_loc, dict_loc, lda_loc):
 
 # python2.7 create_LDA_model.py t docs_dir/ corpus dictionary 100 lda_model
 def main():
-    parser = argparse.ArgumentParser(description='Create a corpus from a collection of documents and/or build an LDA model')
+    parser = argparse.ArgumentParser(description='Create a corpus from a collection of tweets and/or build an LDA model')
     subparsers = parser.add_subparsers(dest='mode')
     
-    text_corpus_parser = subparsers.add_parser('text', help='Build corpus from directory of text files')
-    text_corpus_parser.add_argument('-d', '--docs_loc', required=True, action='store', dest='docs_loc', help='Directory where text documents stored')
+    text_corpus_parser = subparsers.add_parser('tweet', help='Build corpus from directory of tweet files')
+    text_corpus_parser.add_argument('-d', '--docs_loc', required=True, action='store', dest='docs_loc', help='Directory where tweet documents stored')
     text_corpus_parser.add_argument('-c', '--corp_loc', required=True, action='store', dest='corp_loc', help='Location and name to save corpus')
 
     wiki_corpus_parser = subparsers.add_parser('wiki', help='Build corpus from compressed Wikipedia articles')
@@ -104,10 +104,10 @@ def main():
 
     args = parser.parse_args()
 
-    if args.mode == 'text':
+    if args.mode == 'tweet':
         doc_corpus = TweetCorpus(args.docs_loc)
 
-        # ignore words that appear in less than 5 documents or more than 5% of documents
+        # ignore words that appear in less than 5 documents or more than 50% of documents
         doc_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
         MmCorpus.serialize(args.corp_loc + '.mm', doc_corpus)
