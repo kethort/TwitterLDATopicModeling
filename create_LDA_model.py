@@ -37,8 +37,11 @@ def preprocess_tweet(document):
     tknzr = TweetTokenizer()
     text = tknzr.tokenize(text)
 
-    # lowercase & remove stopwords in tokenized list
-    return [word.lower() for word in text if len(word) > 2 and word not in ignore_words]
+    # lowercase, remove words less than len 2 & remove numbers in tokenized list
+    text = [word.lower() for word in text if len(word) > 2 and not word.isdigit()]
+
+    # remove stopwords
+    return [word for word in text if not word in ignore_words]
 
 def list_to_gen(directory):
     for filename in os.listdir(directory):
