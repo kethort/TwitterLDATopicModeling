@@ -12,6 +12,7 @@ from gensim import models
 import pyLDAvis
 from pyLDAvis import gensim as gensim_vis
 import argparse
+import argcomplete
 from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords
 
@@ -104,6 +105,7 @@ def main():
     lda_vis_parser.add_argument('-d', '--dict_loc', required=True, action='store', dest='dict_loc', help='Location of dictionary')
     lda_vis_parser.add_argument('-l', '--lda_loc', required=True, action='store', dest='lda_loc', help='Location of LDA model')
 
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     if args.mode == 'tweet':

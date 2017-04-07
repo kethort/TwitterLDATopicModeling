@@ -3,6 +3,7 @@ import sys
 import os
 from csv import DictReader
 import argparse
+import argcomplete
 import logging
 boto3.set_stream_logger('botocore', logging.INFO)
 
@@ -31,6 +32,7 @@ def main():
     dnload_file_parser.add_argument('-b', '--bucket', required=True, action='store', dest='bucket_name', help='Name of the S3 bucket')
     dnload_file_parser.add_argument('-f', '--file_name', required=True, action='store', dest='file_name', help='Name of file in S3 bucket')
 
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
     
     s3 = boto3.resource('s3')
