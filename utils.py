@@ -50,11 +50,11 @@ def filter_saved_corpus():
 
 # http://nbviewer.jupyter.org/github/dsquareindia/gensim/blob/a4b2629c0fdb0a7932db24dfcf06699c928d112f/docs/notebooks/topic_coherence_tutorial.ipynb
 def get_topic_coherence():
-	dictionary = Dictionary.load('./data/author_topic.dict')
-        corpus = MmCorpus('./data/author_topic.mm')
-	lda = LdaModel.load('./data/at_100_lem_5_pass_2.model')
-	cm = CoherenceModel(model=lda, corpus=corpus, dictionary=dictionary, coherence='u_mass')
-	print(cm.get_coherence())
+    dictionary = Dictionary.load('./data/author_topic.dict')
+    corpus = MmCorpus('./data/author_topic.mm')
+    lda = LdaModel.load('./data/at_100_lem_5_pass_2.model')
+    cm = CoherenceModel(model=lda, corpus=corpus, dictionary=dictionary, coherence='u_mass')
+    print(cm.get_coherence())
 
 
 def write_overall_average_divergence_per_model(user_topics_dir, lda_loc):
