@@ -13,6 +13,9 @@ import subprocess
 import multiprocessing
 from functools import partial
 from nltk.tokenize import TweetTokenizer
+from nltk.corpus import stopwords
+
+ignore_words = set(stopwords.words('english'))
 
 # http://stackoverflow.com/questions/15365046/python-removing-pos-tags-from-a-txt-file
 def write_topn_words(user_topics_dir, lda_model):
