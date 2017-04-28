@@ -91,6 +91,6 @@ A community of users can be evaluated by calculating the distances between their
 The following figure displays the separation in the median internal and external distances of all the communities in the dataset. The distance metric used in the comparisons is the Jensen Shannon Divergence which has a range from 0 to the natural log of 2. 
 
 <p align="center">
-  <img src="/img/community_median_internal_external.png" width="500" height="600"/>
+  <img src="/img/community_median_internal_external.png" width="500" height="700"/>
 </p>
 
