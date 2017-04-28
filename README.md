@@ -76,7 +76,7 @@ A randomly selected user from the dataset is examined and determined to be a ban
 The LDA model is visualized in the next figure where each circle on the map is a topic in the model. The top 30 most relevant words in each topic are listed next to the map. The red bar indicates the frequency of occurrence of the word in the topic and the blue bar represents the frequency of occurrence of the word in the entire corpus. The distance between the topics on the map is defined by the Jensen Shannon Divergence and represents how closely related the topics are to each other in the model. 
 
 <p align="center">
-  <img src="/img/user_x_lda_vis.png" width="500"/>
+  <img src="/img/user_x_lda_vis.png" width="500" height="700"/>
 </p>
 
 From this LDA model visualization, topic 13 displays many words about the legal system. Although not shown, topic 21 in the model contains words about economic institutions and corporations. Both these topics describe the selected user quite well. The two topics in the LDA model visualization are also very close together on the map, indicating that the words in those topics are semantically related to each other in this model.
@@ -91,6 +91,6 @@ A community of users can be evaluated by calculating the distances between their
 The following figure displays the separation in the median internal and external distances of all the communities in the dataset. The distance metric used in the comparisons is the Jensen Shannon Divergence which has a range from 0 to the natural log of 2. 
 
 <p align="center">
-  <img src="/img/community_median_internal_external.png" width="500" height="700"/>
+  <img src="/img/community_median_internal_external.png" width="500"/>
 </p>
 
