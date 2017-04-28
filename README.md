@@ -73,7 +73,7 @@ A randomly selected user from the dataset is examined and determined to be a ban
   <img src="/img/user_x_distribution.png" width="500"/>
 </p>
 
-The LDA model is visualized in the next figure where each circle on the map is a topic in the model. The top 30 most relevant words in each topic are listed next to the map. The red bar indicates the frequency of occurrence of the word in the topic and the blue bar represents the frequency of occurrence of the word in the entire corpus. The distance between the topics on the map is defined by the Jensen Shannon Divergence and represents how closely related the topics are to each other in the model. 
+The LDA model is visualized in the next figure using pyLDAvis, where each circle on the map is a topic in the model. The top 30 most relevant words in each topic are listed next to the map. The red bar indicates the frequency of occurrence of the word in the topic and the blue bar represents the frequency of occurrence of the word in the entire corpus. The distance between the topics on the map is defined by the Jensen Shannon Divergence and represents how closely related the topics are to each other in the model. 
 
 <p align="center">
   <img src="/img/user_x_lda_vis.png" width="750" height="550"/>
