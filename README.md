@@ -30,7 +30,7 @@ Latent Dirichlet Allocation, or LDA, is a generative statistical modeling approa
 
 <p align="center">
   <img src="/img/lda_model.png" width="500"/>
-  *Yuhao Yang, “Topic Modeling with LDA”. www.youtube.com/watch?v=ZgyA1Q2ywbM
+  <br>*Yuhao Yang, “Topic Modeling with LDA”. www.youtube.com/watch?v=ZgyA1Q2ywbM
 </p>
 
 ### Overview
