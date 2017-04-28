@@ -24,7 +24,7 @@ Users who have less than 5 Tweets on their timeline are considered inactive and 
   <img src="/img/clique_size_distribution.png" width="350"/><img src="/img/community_size_distribution.png" width="350"/>
 </p>
 
-## Process
+## Preliminary
 ### LDA Model
 Latent Dirichlet Allocation, or LDA, is a generative statistical modeling approach where topics are derived from a corpus of known training data, which provides a mechanism for predicting the distribution of topics of unseen documents. 
 
@@ -64,3 +64,33 @@ Using the community topology as a map, each user‘s probability distribution ve
 
 #### Visualizations
 Each users‘ topic probability distribution vector is plotted and a pyLDAvis output showing the topics in the model with their top-n words is generated.
+
+## Results
+### Viewing User Topics
+A randomly selected user from the dataset is examined and determined to be a bankruptcy law firm in Arizona. The topic probability distribution vector for the user is generated using the LDA model. The following figure displays the topic probability distribution for the user. The topic probability distribution vector for this Twitter user shows topics 13 and 21 to be the most prominent. 
+
+<p align="center">
+  <img src="/img/user_x_distribution.png" width="500"/>
+</p>
+
+The LDA model is visualized in the next figure where each circle on the map is a topic in the model. The top 30 most relevant words in each topic are listed next to the map. The red bar indicates the frequency of occurrence of the word in the topic and the blue bar represents the frequency of occurrence of the word in the entire corpus. The distance between the topics on the map is defined by the Jensen Shannon Divergence and represents how closely related the topics are to each other in the model. 
+
+<p align="center">
+  <img src="/img/user_x_lda_vis.png" width="500"/>
+</p>
+
+From this LDA model visualization, topic 13 displays many words about the legal system. Although not shown, topic 21 in the model contains words about economic institutions and corporations. Both these topics describe the selected user quite well. The two topics in the LDA model visualization are also very close together on the map, indicating that the words in those topics are semantically related to each other in this model.
+
+### Finding Distances Between Users Based on their Interests
+A community of users can be evaluated by calculating the distances between their probability distribution vectors generated from the LDA model. The following figure displays the distance between one user compared to each of the other users in their community as well as the distance from randomly selected users not in the same community. 
+
+<p align="center">
+  <img src="/img/user_internal_external.png" width="500"/>
+</p>
+
+The following figure displays the separation in the median internal and external distances of all the communities in the dataset. The distance metric used in the comparisons is the Jensen Shannon Divergence which has a range from 0 to the natural log of 2. 
+
+<p align="center">
+  <img src="/img/community_median_internal_external.png" width="500"/>
+</p>
+
