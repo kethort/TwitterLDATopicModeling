@@ -47,12 +47,20 @@ When selecting a corpus as a training set for this project, the approach was to 
 #### Preprocess the Training Set
 The Wikipedia articles were downloaded from an FTP repository as one large compressed XML file. Gensim contains a class that can automatically extract each article from the XML file, tokenize the words in each article, and add each article to a corpus. For this project, I chose to lemmatize the words in the corpus and select only words that are nouns to be added. I also used the large stopword list from http://www.ranks.nl/stopwords to filter the corpus. 
 
+#### Preprocess Documents of Interest
+All of a single users tweets make up one document. The words in each document are filtered using a stopword list. URL‘s and special characters are removed, and the words are lemmatized.
+
 #### Dictionary
 The dictionary is derived from the corpus. It represents the total vocabulary that the model will have. I chose to limit the dictionary to 100,000 words and I also chose to omit words that occurred in less than 5 articles or more than 5% of all the articles. 
 
 #### Model
 The model was trained with the number of topics set to 100 using an asymmetric prior and requiring 5 passes through the corpus. The other parameters for training the model were set to their default values.
 
+#### Inference
+Each preprocessed document of interest is used to query the trained model which generates a topic probability distribution vector for the document.
 
+#### Calculations
+Using the community topology as a map, each user‘s probability distribution vector is used to calculate similarities between other users. The similarity metric used is the Jensen Shannon divergence. 
 
-
+#### Visualizations
+Each users‘ topic probability distribution vector is plotted and a pyLDAvis output showing the topics in the model with their top-n words is generated.
