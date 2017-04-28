@@ -1,8 +1,4 @@
 # twitter_LDA_topic_modeling
-Uses the Gensim library in Python to create a corpus from documents and train an LDA model.
-The model is used to evaluate similarities in conversations between Twitter users.
-The groups of Twitter users being evaluated were found using community detection algorithms. Tweepy was used to communicate with the Twitter API. Matplotlib and pyLDAvis were used to produce illustrations of the data. Scipy, Numpy and NLTK were used during processing of the data. 
-
 ## Introduction
 Users on social media platforms like Twitter create reciprocal friendships with each other, often forming groups of interconnected follower relationships. In the context of network theory, these relationships between groups of connected users are referred to as communities.
 		There exist many different algorithms for discovering communities but little research has been done to understand the significance of the context of association within these communities. A simple approach to discovering the substance of user relationships on Twitter would be to read through the tweets of each user in the community and come to a conclusion about the interests of each user based on the observations. Unfortunately, this approach will not scale well for large amounts of data and the categorization of interests would be biased in regards to the person who is interpreting the information.
@@ -36,7 +32,7 @@ Latent Dirichlet Allocation, or LDA, is a generative statistical modeling approa
   <img src="/img/lda_model.png" width="500"/>
 </p>
 <p align="center">
-  <b>*Yuhao Yang, “Topic Modeling with LDA”. www.youtube.com/watch?v=ZgyA1Q2ywbM</b>
+  *Yuhao Yang, “Topic Modeling with LDA”. www.youtube.com/watch?v=ZgyA1Q2ywbM
 </p>
 ### Overview
 The goal of processing the collected data for this project is to find a way to categorize the discussions that are contained in the Tweet documents and use that information to analyze the communities. The approach will be to create an LDA topic model from a corpus of known categorical information, transform each of the user's Tweets into a vectorized distribution of topics by querying that model, and use that information to find similarities between other users. 
