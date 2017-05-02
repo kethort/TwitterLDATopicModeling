@@ -54,7 +54,7 @@ All of a single users tweets make up one document. The words in each document ar
 The dictionary is derived from the corpus. It represents the total vocabulary that the model will have. I chose to limit the dictionary to 100,000 words and I also chose to omit words that occurred in less than 5 articles or more than 5% of all the articles. 
 
 #### Model
-The model was trained with the number of topics set to 100 using an asymmetric prior and requiring 5 passes through the corpus. The other parameters for training the model were set to their default values.
+The model was trained with the number of topics set to 50, using an asymmetric prior and requiring 5 passes through the corpus. The other parameters for training the model were set to their default values.
 
 #### Inference
 Each preprocessed document of interest is used to query the trained model which generates a topic probability distribution vector for the document.
