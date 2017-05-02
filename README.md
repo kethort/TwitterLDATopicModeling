@@ -37,7 +37,7 @@ Latent Dirichlet Allocation, or LDA, is a generative statistical modeling approa
 The goal of processing the collected data for this project is to find a way to categorize the discussions that are contained in the Tweet documents and use that information to analyze the communities. The approach will be to create an LDA topic model from a corpus of known categorical information, transform each of the user's Tweets into a vectorized distribution of topics by querying that model, and use that information to find similarities between other users. 
 
 <p align="center">
-  <img src="/img/lda_architecture.png" width="500" height="600"/>
+  <img src="/img/lda_architecture.png"/>
 </p>
 
 ### Creating the Model
