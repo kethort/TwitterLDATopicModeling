@@ -1,6 +1,4 @@
-#http://stackoverflow.com/questions/25553919/passing-multiple-parameters-to-pool-map-function-in-python
 import random
-import click
 import csv
 import json
 import os
@@ -22,13 +20,11 @@ from gensim import corpora, models, matutils
 
 def community_user_distances(community_dir):
     '''
-        for each user find the distance from every other user using their document vectors
-        writes files to corresponding community directories
+        for each user find the distance from every other user using their probability distribution vectors
 
-        This method executes quickly so everytime it is run, the files that are currently in the 
-        directories are removed. 
+        This method executes quickly so everytime it is run the older files are overwritten 
+        Dictionary <k, v>(user_id, distribution_vector)
 
-        Dictionary <k, v>(user_id, doc_vec)
     '''
     if not os.path.exists(os.path.dirname(community_dir + '/distance_info/')):
         os.makedirs(os.path.dirname(community_dir + '/distance_info/'), 0o755)
@@ -52,7 +48,7 @@ def community_user_distances(community_dir):
     with open(cos_file, 'a') as cosfile, open(hell_file, 'a') as hellfile, open(euc_file, 'a') as eucfile, open(jen_shan_file, 'a') as jenshanfile:
         for key in sorted(community_doc_vecs):
             user = key
-            # only necessary to compare each user with another user once
+            # only necessary to compare each user with any other user once
             vec_1 = community_doc_vecs.pop(key)
 
             for key_2 in sorted(community_doc_vecs):
@@ -75,7 +71,10 @@ def jensen_shannon_divergence(P, Q):
     return 0.5 * (entropy(_P, _M) + entropy(_Q, _M))
 
 def community_median_distances(community_dir):
-    tot_rows = 0
+    '''
+    calculates and stores the median JSD for each community into a file
+    
+    '''
     fieldnames = ['user_1', 'user_2', 'distance']
         
     if os.path.exists(community_dir + '/distance_info/community_median_distances'):
@@ -100,9 +99,8 @@ def community_median_distances(community_dir):
 
 def user_to_internal_users_graph(community):
     '''
-
-    creates graph displaying each user in the community comparing the jensen 
-    shannon divergences against other users in same community
+    creates graph displaying each user in the community comparing the jensen shannon divergences between
+    their probability distribution vectors against other users in same community
 
     Methods used:
     > internal_graph_axes()
@@ -123,7 +121,7 @@ def user_to_internal_users_graph(community):
     if not os.path.exists(os.path.dirname(jsd_path)):
         os.makedirs(os.path.dirname(jsd_path), 0o755)
 
-    print('Drawing user to community graphs for: ' + str(community))
+    print('Drawing internal community graphs for: ' + str(community))
     for user in comm_doc_vecs:
         if not os.path.exists(jsd_path + user + '.png'):
             with open(community + '/distance_info/jensen_shannon', 'r') as infile:
@@ -163,18 +161,17 @@ def draw_scatter_graph(title, x_label, y_label, x_axis, y_axis, min_x, max_x, mi
 
 def user_to_external_users_graph(working_dir, community):
     '''
+    creates graph displaying each user in the community comparing the jensen shannon divergences 
+    against randomly selected users from outside communities.
 
-    creates graph displaying each user in the community comparing the 
-    jensen shannon divergences against randomly selected users from outside
-    communities.
-
-    The measured divergences between users is mediand over a set amount of iterations.
+    A sample of outside users equal to (NUM_ITER * the amount of users in the community) is selected 
+    and the average median jensen shannon divergence of that sample is used to illustrate the dissimilarities
+    between internal and external users in the graphs.
 
     Methods used:
     > get_rand_users()
     > draw_scatter_graph()
-    > jensen_shannon_divergence() from tweets_on_LDA.py
-    > hellinger_distance() from tweets_on_LDA.py
+    > jensen_shannon_divergence()
 
     '''
     NUM_ITER = 10
@@ -198,7 +195,7 @@ def user_to_external_users_graph(working_dir, community):
 
     x_axis = np.arange(1, len(comm_doc_vecs))
     external_users = get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER)
-    user_avg_dist = defaultdict(list)
+    external_median_jsd = []
     fieldnames = ['user', 'rand_user', 'dist']
 
     print('Drawing user to external users graphs for: ' + str(community))
@@ -206,45 +203,23 @@ def user_to_external_users_graph(working_dir, community):
         if not(os.path.exists(jsd_path + user)):
             y_axis = []
             i = 0
-            distances = defaultdict(lambda: [0] * (len(comm_doc_vecs) - 1))
+            jsd = [0] * (len(comm_doc_vecs) - 1)
+            # running time is uffed like a beach here
             while(i < (len(comm_doc_vecs) - 1) * NUM_ITER):
-                for n in xrange(0, len(comm_doc_vecs) - 1):
-                    # circular queue exceeds limitation of possible external community users
+                for n in range(0, len(comm_doc_vecs) - 1):
+                    # circular queue because it's possible to exceed amount of all users in entire dataset
                     rand_user = external_users.pop()
                     external_users.insert(0, rand_user)
+                    jsd[n] += jensen_shannon_divergence(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
                     i += 1
 
-                    jsd = jensen_shannon_divergence(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                    hel = hellinger_distance(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                    cos = distance.cosine(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                    euc = distance.euclidean(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-
-                    distances['hel'][n] += hel
-                    distances['cos'][n] += cos
-                    distances['euc'][n] += euc
-                    distances['jen'][n] += jsd
-            i = 0
-
-            # mmmmm....repeating code...doh!
             with open(jsd_path + user, 'w') as graph_numbers:
-                for dist in distances['jen']:
-                    graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', dist/NUM_ITER))
-                    y_axis.append(dist/NUM_ITER)
-            user_avg_dist['jen'].append(np.median(y_axis))
+                for div in jsd:
+                    graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', div/NUM_ITER))
+                    y_axis.append(div/NUM_ITER)
+            external_median_jsd.append(np.median(y_axis))
             if not os.path.exists(jsd_path + user + '.png'):
                 draw_scatter_graph(user, 'External Users', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + .01), jsd_path + user)
-            y_axis = []
-            for dist in distances['hel']:
-                y_axis.append(dist/NUM_ITER)
-            user_avg_dist['hel'].append(np.median(y_axis))
-            y_axis = []
-            for dist in distances['cos']:
-                y_axis.append(dist/NUM_ITER)
-            user_avg_dist['cos'].append(np.median(y_axis))
-            y_axis = []
-            for dist in distances['euc']:
-                y_axis.append(dist/NUM_ITER)
-            user_avg_dist['euc'].append(np.median(y_axis))
 
         else:
             distances = []
@@ -252,45 +227,32 @@ def user_to_external_users_graph(working_dir, community):
                 csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
                 for row in csv_reader:
                     distances.append(float(row['dist']))
-            user_avg_dist['jen'].append(np.median(distances))
+            external_median_jsd.append(np.median(distances))
 
     with open(community + '/distance_info/external_median_distances', 'w') as outfile:
-        for metric in user_avg_dist:
-            if(metric == 'jen'):
-                outfile.write('{}\t{}\n'.format('jensen_shannon', np.median(user_avg_dist[metric])))
-            elif(metric == 'hel'):
-                outfile.write('{}\t{}\n'.format('hellinger', np.median(user_avg_dist[metric])))
-            elif(metric == 'euc'):
-                outfile.write('{}\t{}\n'.format('euclidean', np.median(user_avg_dist[metric])))
-            elif(metric == 'cos'):
-                outfile.write('{}\t{}\n'.format('cosine', np.median(user_avg_dist[metric])))
+        outfile.write('{}\t{}\n'.format('jensen_shannon', np.median(external_median_jsd)))
 
 def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
     '''
-
     returns multiple of a list of random users not in the current users' community
 
-    If number of iterations is set to 10, the random users returned is equal to:
+    if number of iterations is set to 10, the random users returned is equal to:
       10 * (len(users in the community) - 1)
-
-    When number of iterations is set to a large number, the amount of possible external
-    users to compare against is limited by size of length of all users in all external
-    communities.
 
     '''
 
     max_external_users = len(all_community_doc_vecs) - len(comm_doc_vecs)
+    internal_users = set(user for user in comm_doc_vecs)
     external_users = []
     while True:
         rand_external_user = random.sample(list(all_community_doc_vecs), 1)[0]
-        if rand_external_user not in set(external_users) and not any(rand_external_user == user for user in comm_doc_vecs):
+        if rand_external_user not in set(external_users) and rand_external_user not in internal_users:
             external_users.append(rand_external_user)
         if(len(external_users) == (len(comm_doc_vecs) - 1) * NUM_ITER or len(external_users) == max_external_users):
             return external_users
 
 def user_internal_external_distance(community):
     '''
-
     folders and figures for user internal vs external distance graphs
 
     Methods used:
@@ -314,21 +276,19 @@ def user_internal_external_distance(community):
 
     print('Drawing distance within community vs distance outside community for: ' + str(community))
     for user in comm_doc_vecs:
-        draw_user_internal_external_graph(user, jsd_path, community, 'jensen_shannon')
+        draw_user_internal_external_graph(user, jsd_path, community)
 
-def draw_user_internal_external_graph(user, dist_path, community, metric):
+def draw_user_internal_external_graph(user, dist_path, community):
     '''
-
     user to internal against user to external distance
     graphs, puts plotted data into community directories
 
     '''
-
     if not os.path.exists(dist_path + user + '.png'):
         y_axis = []
         fieldnames = ['user_1', 'user_2', 'distance']
         output_path = dist_path + user
-        with open(community + '/user_to_internal_users_graphs/' + metric + '/' + user, 'r') as dist_file:
+        with open(community + '/user_to_internal_users_graphs/jensen_shannon/' + user, 'r') as dist_file:
             csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
             for row in csv_reader:
                 with open(dist_path + user, 'a') as outfile:
@@ -336,7 +296,7 @@ def draw_user_internal_external_graph(user, dist_path, community, metric):
                 y_axis.append(float(row['distance']))
         plt.plot(np.arange(0, len(y_axis)), y_axis, 'b')
         y_axis = []
-        with open(community + '/user_to_external_users_graphs/' + metric + '/' + user, 'r') as dist_file:
+        with open(community + '/user_to_external_users_graphs/jensen_shannon/' + user, 'r') as dist_file:
             csv_reader = csv.DictReader(dist_file, delimiter='\t', fieldnames=fieldnames)
             for row in csv_reader:
                 with open(dist_path + user, 'a') as outfile:
@@ -344,15 +304,9 @@ def draw_user_internal_external_graph(user, dist_path, community, metric):
                 y_axis.append(float(row['distance']))
         plt.plot(np.arange(0, len(y_axis)), y_axis, 'g')
 
-        if metric == 'jensen_shannon':
-            plt.ylabel('Divergence')
-            plt.title('Divergence from ' + user + ' to Internal/External Users')
-            plt.ylim([0, np.log(2)])
-        else:
-            plt.ylabel('Distance')
-            plt.title('Distance from ' + user + ' to Internal/External Users')
-            plt.ylim([0, 1])
-
+        plt.ylabel('Divergence')
+        plt.title('Divergence from ' + user + ' to Internal/External Users')
+        plt.ylim([0, np.log(2)])
         plt.xlabel('Users')
         plt.xlim([0, len(y_axis) - 1])
         plt.xticks(np.arange(0, len(y_axis), 1))
@@ -363,11 +317,7 @@ def draw_user_internal_external_graph(user, dist_path, community, metric):
 
 def num_users_distance_range_graph(community):
     '''
-
-    directories for user to internal plus external distance graphs of community
-
-    Methods used:
-    > draw_num_users_distance_range_graph
+    bar graph showing occurrences where users in community are distant from other users in the same community 
 
     '''
     try:
@@ -385,30 +335,22 @@ def num_users_distance_range_graph(community):
     if not os.path.exists(os.path.dirname(jsd_path)):
         os.makedirs(os.path.dirname(jsd_path), 0o755)
 
-    draw_num_users_distance_range_graph(community, comm_doc_vecs, jsd_path, 'jensen_shannon')
+    internal_data = community + '/user_to_internal_users_graphs/jensen_shannon/'
+    external_data = community + '/user_to_external_users_graphs/jensen_shannon/'
 
-def draw_num_users_distance_range_graph(community, comm_doc_vecs, output_dir, metric):
-    '''
-
-    bar graph showing number of occurrences that users in community are distant 
-    from other users in the same community 
-
-    Methods used:
-    > num_internal_users()
-    > num_external_users()
-
-    '''
-    internal_data = community + '/user_to_internal_users_graphs/' + metric + '/'
-    external_data = community + '/user_to_external_users_graphs/' + metric + '/'
-
-    print('Drawing number users as grouped ' + str(metric) + ' distance graph for: ' + str(community))
+    distances = []
+    fieldnames = ['user_1', 'user_2', 'distance']
+    print('Drawing number users as grouped Jensen Shannon' + ' distance graph for: ' + str(community))
     for user in comm_doc_vecs:
         if not os.path.exists(output_dir + user + '.png'):
             with open(internal_data + user, 'r') as plot_file:
-                num_internal_users = get_num_users(plot_file, np.arange(0, 0.7, 0.1))
+                csv_reader = csv.DictReader(plot_file, delimiter='\t', fieldnames=fieldnames)
+                distances = [float(row['distance']) for row in csv_reader]
+            num_internal_users = bin_jsd_by_range(distances)
             with open(external_data + user, 'r') as plot_file:
-                num_external_users = get_num_users(plot_file, np.arange(0, 0.7, 0.1))
-
+                csv_reader = csv.DictReader(plot_file, delimiter='\t', fieldnames=fieldnames)
+                distances = [float(row['distance']) for row in csv_reader]
+            num_external_users = bin_jsd_by_range(distances)
             plt.xlabel('Jensen Shannon Divergence')
             plt.title('Internal/External Divergence Range from User: ' + str(user))
             objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '> 0.6')
@@ -426,36 +368,9 @@ def draw_num_users_distance_range_graph(community, comm_doc_vecs, output_dir, me
             plt.savefig(output_dir + user)
             plt.close()
 
-def get_num_users(input_file, distance_range):
-    '''
-
-    list of integers showing divergences that fall within a set of ranges
-    jensen shannon 
-
-    '''
-    fieldnames = ['user_1', 'user_2', 'distance']
-
-    csv_reader = csv.DictReader(input_file, delimiter='\t', fieldnames=fieldnames)
-
-    y_vals = [0] * len(distance_range)
-    for i in range(0, len(distance_range)):
-        for row in csv_reader:
-            distance = float(row['distance'])
-            if(i == len(distance_range) - 1):
-                if(distance >= distance_range[i]):
-                    y_vals[i] += 1
-            else:
-                if(distance >= distance_range[i] and distance < distance_range[i + 1]):
-                    y_vals[i] += 1
-        input_file.seek(0)
-
-    return y_vals 
-
 def community_median_internal_external_distance(working_dir):
     '''
-
-    graphs displaying median internal vs median external distances
-    for communities and cliques
+    graphs displaying median internal vs median external distances for entire communities or cliques
 
     Methods used:
     > community_clique_median_axes()
@@ -514,10 +429,8 @@ def community_median_internal_external_distance(working_dir):
 
 def community_clique_median_axes(dist_dirs, filename):
     '''
-
-    two lists one with the coordinates for the y axis of the
+    returns two lists; one with the coordinates for the y axis of the
     median distances for a clique and the other for a community.
-
 
     '''
     fieldnames = ['metric', 'distance']
@@ -538,27 +451,21 @@ def community_clique_median_axes(dist_dirs, filename):
 
 def median_similarity_clique_community_size_graph(working_dir):
     '''
-
-    graph displaying the median distances compared to community size
-    sets up the axes for drawing other graphs
-
-    ** currently only draws graphs using jensen shannon divergence
+    graph displaying the overall median JSD compared to community size by binning
 
     Methods used:
     > get_num_communities_jsd()
-    > draw_num_communities_range_graph()
-    > draw_num_clq_comm_int_range_graph()
-    > distributed_median_similarity_clique_community_size_graph()
+    > draw_binned_jsd_by_range_graph()
+    > draw_binned_jsd_by_range_for_two_graph()
+    > overall_median_community_jsd_vs_size_graph()
 
     '''
     clq_x_axis = []
-    clq_y_axis = []
     comm_x_axis = []
-    comm_y_axis = []
-    int_clq_dists_range = [0] * 7
-    ext_clq_dists_range = [0] * 7
-    int_comm_dists_range = [0] * 7
-    ext_comm_dists_range = [0] * 7
+    int_clq_dists = []
+    ext_clq_dists = []
+    int_comm_dists = []
+    ext_comm_dists = []
     clq_divs = defaultdict(list)
     comm_divs = defaultdict(list)
 
@@ -576,36 +483,34 @@ def median_similarity_clique_community_size_graph(working_dir):
                     if(row['metric'] == 'jensen_shannon'):
                         if 'clique' in community:
                             clq_divs[len(comm_doc_vecs)].append(float(row['distance']))
-                            clq_y_axis.append(float(row['distance']))
                             clq_x_axis.append(len(comm_doc_vecs))
-                            int_clq_dists_range = get_num_communities_jsd(float(row['distance']), int_clq_dists_range)
+                            int_clq_dists.append(float(row['distance']))
                         else:
                             comm_divs[len(comm_doc_vecs)].append(float(row['distance']))
-                            comm_y_axis.append(float(row['distance']))
                             comm_x_axis.append(len(comm_doc_vecs))
-                            int_comm_dists_range = get_num_communities_jsd(float(row['distance']), int_comm_dists_range)
+                            int_comm_dists.append(float(row['distance']))
 
             with open(path + community + '/distance_info/external_median_distances', 'r') as ext_dist_file:
                 csv_reader = csv.DictReader(ext_dist_file, delimiter='\t', fieldnames=fieldnames)
                 for row in csv_reader:
                     if(row['metric'] == 'jensen_shannon'):
                         if 'clique' in community:
-                            ext_clq_dists_range = get_num_communities_jsd(float(row['distance']), ext_clq_dists_range)
+                            ext_clq_dists = float(row['distance'])
                         else:
-                            ext_comm_dists_range = get_num_communities_jsd(float(row['distance']), ext_comm_dists_range)
+                            ext_comm_dists = float(row['distance'])
 
-        draw_num_communities_range_graph(working_dir, int_clq_dists_range, ext_clq_dists_range, int_comm_dists_range, ext_comm_dists_range)
-        draw_num_clq_comm_int_range_graph(working_dir, int_clq_dists_range, int_comm_dists_range, 'Clique & Community Internal Divergence Distribution', 'Clique', 'Community', 'clq_comm_int_dist_avg_range')
-        draw_num_clq_comm_int_range_graph(working_dir, ext_clq_dists_range, ext_comm_dists_range, 'Clique & Community External Divergence Distribution', 'Clique', 'Community', 'clq_comm_ext_dist_avg_range')
-        draw_num_clq_comm_int_range_graph(working_dir, int_clq_dists_range, ext_clq_dists_range, 'Clique Internal & External Divergence Distribution', 'Internal', 'External', 'clq_int_ext_dist_avg_range')
-        draw_num_clq_comm_int_range_graph(working_dir, int_comm_dists_range, ext_comm_dists_range, 'Community Internal & External Divergence Distribution', 'Internal', 'External', 'comm_int_ext_dist_avg_range')
-        distributed_median_similarity_clique_community_size_graph(working_dir, clq_divs, comm_divs)
+        draw_binned_jsd_by_range_for_all_graph(working_dir, int_clq_dists, ext_clq_dists, int_comm_dists, ext_comm_dists)
+        draw_binned_jsd_by_range_for_two_graph(working_dir, int_clq_dists, int_comm_dists, 'Clique & Community Internal Divergence Distribution', 'Clique', 'Community', 'clq_comm_int_dist_avg_range')
+        draw_binned_jsd_by_range_for_two_graph(working_dir, ext_clq_dists, ext_comm_dists, 'Clique & Community External Divergence Distribution', 'Clique', 'Community', 'clq_comm_ext_dist_avg_range')
+        draw_binned_jsd_by_range_for_two_graph(working_dir, int_clq_dists, ext_clq_dists, 'Clique Internal & External Divergence Distribution', 'Internal', 'External', 'clq_int_ext_dist_avg_range')
+        draw_binned_jsd_by_range_for_two_graph(working_dir, int_comm_dists, ext_comm_dists, 'Community Internal & External Divergence Distribution', 'Internal', 'External', 'comm_int_ext_dist_avg_range')
+        overall_median_community_jsd_vs_size_graph(working_dir, clq_divs, comm_divs)
 
         plt.ylabel('Median Jensen Shannon divergence')
         plt.xlabel('Size of Community')
         plt.title('Median Community Similarity')
         output_path = working_dir + 'community_size_median_divergence'
-        plt.scatter(comm_x_axis, comm_y_axis)
+        plt.scatter(comm_x_axis, int_comm_dists)
         plt.ylim([0, np.log(2) + .001])
         plt.xlim([0, max(comm_x_axis) + 1])
         plt.savefig(output_path)
@@ -615,7 +520,7 @@ def median_similarity_clique_community_size_graph(working_dir):
         plt.xlabel('Size of Clique')
         plt.title('Median Clique Divergence')
         output_path = working_dir + 'clique_size_median_divergence'
-        plt.scatter(clq_x_axis, clq_y_axis)
+        plt.scatter(clq_x_axis, int_clq_dists)
         plt.ylim([0, np.log(2) + .001])
         plt.xlim([0, max(clq_x_axis) + 1])
         plt.savefig(output_path)
@@ -623,23 +528,20 @@ def median_similarity_clique_community_size_graph(working_dir):
 
         break # restrict depth of folder traversal to 1
 
-def draw_num_communities_range_graph(working_dir, int_clq, ext_clq, int_comm, ext_comm):
+def draw_binned_jsd_by_range_for_all_graph(working_dir, int_clq, ext_clq, int_comm, ext_comm):
     '''
-
-    graph displaying internal and external distribution for median distances/divergences
-    for all communities and cliques in dataset
-
-    ** currently only displays results for jensen shannon divergence
+    binned frequency of occurences of jensen shannon divergence in 0.1 incremental ranges 
+    comparing internal cliques and communities as well as external cliques and communities
 
     '''
     width = 0.2
     fig, ax = plt.subplots()
     objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '> 0.6')
     x_axis = np.arange(len(objects))
-    rects_1 = ax.bar(x_axis, int_clq, width, color='r', align='center')
-    rects_2 = ax.bar(x_axis + width, ext_clq, width, color='g', align='center')
-    rects_3 = ax.bar(x_axis + width * 2, int_comm, width, color='b', align='center')
-    rects_4 = ax.bar(x_axis + width * 4, ext_comm, width, color='y', align='center')
+    rects_1 = ax.bar(x_axis, bin_jsd_by_range(int_clq), width, color='r', align='center')
+    rects_2 = ax.bar(x_axis + width, bin_jsd_by_range(ext_clq), width, color='g', align='center')
+    rects_3 = ax.bar(x_axis + width * 2, bin_jsd_by_range(int_comm), width, color='b', align='center')
+    rects_4 = ax.bar(x_axis + width * 4, bin_jsd_by_range(ext_comm), width, color='y', align='center')
     ax.set_xlabel('Jensen Shannon Divergence Distribution')
     ax.set_ylabel('Number of Communities')
     ax.set_title('Clique/Community Divergence Distribution')
@@ -652,47 +554,32 @@ def draw_num_communities_range_graph(working_dir, int_clq, ext_clq, int_comm, ex
     plt.savefig(working_dir + 'clq_comm_distributed_avg_range')
     plt.close(fig)
 
-def get_num_communities_jsd(distance, avg_dists_range):
+def bin_jsd_by_range(distances):
     '''
-
-    list of integers showing the amount of cliques/communities whose
-    median distances/divergences fall within a set of ranges
+    returns a list of occurences where the overall median community divergences fall
+    in the range of 0 to ln(2)
 
     '''
-    grp_1 = grp_2 = grp_3 = grp_4 = grp_5 = grp_6 = grp_7 = 0
-    if(distance >= 0 and distance < 0.1):
-        grp_1 += 1
-    elif(distance >= 0.1 and distance < 0.2):
-        grp_2 += 1
-    elif(distance >= 0.2 and distance < 0.3):
-        grp_3 += 1
-    elif(distance >= 0.3 and distance < 0.4):
-        grp_4 += 1
-    elif(distance >= 0.4 and distance < 0.5):
-        grp_5 += 1
-    elif(distance >= 0.5 and distance < 0.6):
-        grp_6 += 1
-    elif(distance >= 0.6):
-        grp_7 += 1
+    bins = np.arange(0, np.log(2) + 0.1, 0.1)
+    binned = np.digitize(distances, bins)
+    binned = [x - 1 for x in binned]
+    return np.bincount(binned)
 
-    num_users = (grp_1, grp_2, grp_3, grp_4, grp_5, grp_6, grp_7)
-    return np.sum([num_users, avg_dists_range], axis=0)
-
-def draw_num_clq_comm_int_range_graph(working_dir, dists_1, dists_2, title, lg_lbl_1, lg_lbl_2, out_name):
+def draw_binned_jsd_by_range_for_two_graph(working_dir, dists_1, dists_2, title, lg_lbl_1, lg_lbl_2, out_name):
     '''
+    binned frequency of occurences of community median jensen shannon divergence in 0.1 incremental ranges 
+    comparing two cases, either:
 
-    graph displaying difference in distribution of internal median clique vs median community
-    distances/divergences which fall into set of ranges
-
-    ** currently only displays distribution for jensen shannon divergence 
+        internal cliques vs community divergences, internal clique vs external clique divergences,
+        internal community vs external community divergences or external clique vs external community divergences
 
     '''
     width = 0.3
     fig, ax = plt.subplots()
     objects = ('[0, 0.1]', '[0.1, 0.2]', '[0.2, 0.3]', '[0.3, 0.4]', '[0.4, 0.5]', '[0.5, 0.6]', '> 0.6')
     x_axis = np.arange(len(objects))
-    rects_1 = ax.bar(x_axis, dists_1, width, color='r', align='center')
-    rects_2 = ax.bar(x_axis + width, dists_2, width, color='b', align='center')
+    rects_1 = ax.bar(x_axis, bin_jsd_by_range(dists_1), width, color='r', align='center')
+    rects_2 = ax.bar(x_axis + width, bin_jsd_by_range(dists_2), width, color='b', align='center')
     ax.set_xlabel('Jensen Shannon Divergence Distribution')
     ax.set_ylabel('Number of Communities')
     ax.set_title(title)
@@ -705,13 +592,10 @@ def draw_num_clq_comm_int_range_graph(working_dir, dists_1, dists_2, title, lg_l
     plt.savefig(working_dir + out_name)
     plt.close(fig)
 
-def distributed_median_similarity_clique_community_size_graph(working_dir, clq_divs, comm_divs):
+def overall_median_community_jsd_vs_size_graph(working_dir, clq_divs, comm_divs):
     '''
-
-    graph displays the median of the internal clique and internal
-    community median distance/divergence compared to the size of the clique or community
-
-    ** currently only displays the jensen shannon divergence
+    displays the median internal clique and internal community divergence in relation
+    to the size of the clique or community
 
     ''' 
     clq_x_axis = []
@@ -742,28 +626,12 @@ def distributed_median_similarity_clique_community_size_graph(working_dir, clq_d
     plt.savefig(output_path)
     plt.close()
 
-def draw_topic_distribution_graph(comm_doc_vecs, user, output_path):
-    if not os.path.exists(output_path + user + '.png'):
-        y_axis = []
-        x_axis = []
-    
-        for topic_id, dist in enumerate(comm_doc_vecs[user]):
-            x_axis.append(topic_id + 1)
-            y_axis.append(dist)
-        width = 1 
+def user_topic_distribution_graph(community_dir):
+    '''
+    Each of the user's topic probability distribution vectors can be visualized using 
+    this function
 
-        plt.bar(x_axis, y_axis, width, align='center', color='r')
-        plt.xlabel('Topics')
-        plt.ylabel('Probability')
-        plt.title('Topic Distribution for User: ' + user)
-        plt.xticks(np.arange(2, len(x_axis), 2), rotation='vertical', fontsize=7)
-        plt.subplots_adjust(bottom=0.2)
-        plt.ylim([0, np.max(y_axis) + .01])
-        plt.xlim([0, len(x_axis) + 1])
-        plt.savefig(output_path + user)
-        plt.close()
-
-def user_topic_distribution(community_dir):
+    '''
     print('Getting topic distribution for : ' + community_dir)
     output_path = community_dir + '/topic_distribution_graphs/'
             
@@ -774,13 +642,32 @@ def user_topic_distribution(community_dir):
         comm_doc_vecs = json.load(infile)
 
     for user in comm_doc_vecs:
-        draw_topic_distribution_graph(comm_doc_vecs, user, output_path)
+        if not os.path.exists(output_path + user + '.png'):
+            y_axis = []
+            x_axis = []
+        
+            for topic_id, dist in enumerate(comm_doc_vecs[user]):
+                x_axis.append(topic_id + 1)
+                y_axis.append(dist)
+            width = 1 
+
+            plt.bar(x_axis, y_axis, width, align='center', color='r')
+            plt.xlabel('Topics')
+            plt.ylabel('Probability')
+            plt.title('Topic Distribution for User: ' + user)
+            plt.xticks(np.arange(2, len(x_axis), 2), rotation='vertical', fontsize=7)
+            plt.subplots_adjust(bottom=0.2)
+            plt.ylim([0, np.max(y_axis) + .01])
+            plt.xlim([0, len(x_axis) + 1])
+            plt.savefig(output_path + user)
+            plt.close()
 
 def delete_inactive_communities(community):
     '''
+    deletes clique and corresponding community directories with 1 or less active users
 
-    deletes clique and corresponding community directories with 1 or less 
-    active users
+    if not used, most graphing functions above will omit communities of size 1 or less
+    because no comparisons can be made
 
     '''
     try:
@@ -798,9 +685,7 @@ def delete_inactive_communities(community):
 
 def delete_inactive_users(community):
     '''
-
-    removes users from community document vector dictionaries
-    if the amount of times they tweeted is less than 10
+    removes users from the dataset if the amount of times they tweeted is less than 10
 
     '''
     try:
@@ -825,6 +710,7 @@ def dir_to_iter(working_dir):
             yield(path + community)
         break
 
+#http://stackoverflow.com/questions/25553919/passing-multiple-parameters-to-pool-map-function-in-python
 def main(working_dir):
     '''
     argument for program should be working_dir location
@@ -852,7 +738,7 @@ def main(working_dir):
 #
 #    pool.map(num_users_distance_range_graph, dir_to_iter(working_dir))
 
-    pool.map(user_topic_distribution, dir_to_iter(working_dir))
+    pool.map(user_topic_distribution_graph, dir_to_iter(working_dir))
 
     pool.terminate()
  
