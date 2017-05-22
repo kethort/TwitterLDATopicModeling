@@ -1,6 +1,6 @@
+#!/bin/bash
 # setting up the entire environment from 
 # fresh Ubuntu 16.04 LTS 64-bit install
-
 sudo apt-get -y update
 sudo apt-get -y upgrade
 
@@ -22,19 +22,20 @@ sudo pip install virtualenv
 
 virtualenv -p /usr/bin/python2.7 venv
 source venv/bin/activate
+pip install -r requirements.txt
 
 # check for BLAS installation
-pip install -r requirements.txt
 python -c 'import numpy; numpy.show_config()'
 
 # patch Gensim modules and download stopword lists
 printf 'd\nstopwords\nq' | python -c 'import nltk; nltk.download()'
+mv patches/english ~/nltk_data/corpora/stopwords
 
-chmod +x patch_env_modules.sh
-./patch_env_modules.sh
+# wikicorpus patch 
+# 1. increases the min size of acceptable articles to 200 words
+# 2. uses a stopword list to filter words during lemmatization 
+# 3. selects only noun POS tags during lemmatization
 
-# configure AWS keys and S3 location
-aws configure
-
-# ssh into ec2
-ssh -i ../AWS_Keys/boto_key_pair.pem ubuntu@ec2-54-82-228-233.compute-1.amazonaws.com
+cp patches/wikicorpus.py venv/lib/python2.7/site-packages/gensim/corpora/
+cp patches/prog_class.py venv/lib/python2.7/site-packages/pyprind/prog_class.py
+cp patches/english ~/nltk_data/corpora/stopwords/
