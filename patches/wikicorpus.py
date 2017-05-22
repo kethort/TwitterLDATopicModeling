@@ -243,7 +243,6 @@ def process_article(args):
     text, lemmatize, title, pageid = args
     text = filter_wiki(text)
     if lemmatize:
-        #result = utils.lemmatize(text)
         result = utils.lemmatize(text, allowed_tags=re.compile('(NN)'), stopwords=ignore_words, min_length=3)
     else:
         result = tokenize(text)
