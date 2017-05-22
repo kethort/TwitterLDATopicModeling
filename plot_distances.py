@@ -1,5 +1,4 @@
 import random
-import csv
 import pandas as pd
 import json
 import os
@@ -70,22 +69,19 @@ def median_community_distances(community):
     calculates and stores the median JSD for each community into a file
     
     '''
-    fieldnames = ['user_1', 'user_2', 'distance']
     if os.path.exists(community + '/distance_info/median_community_distances'):
         os.remove(community + '/distance_info/median_community_distances')
     
     comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
        
+    rows = []
+    distance_dir = community + '/distance_info/'
     print('Calculating median distances for: ' + community)
-    for path, dirs, files in os.walk(community + '/distance_info/'):
-        for distance_file in files:
-            with open(path + distance_file, 'r') as infile:
-                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-                distances = [float(row['distance']) for row in csv_reader if row['distance']]
-            if distances:
-                with open(path + 'median_community_distances', 'a') as outfile:
-                    outfile.write('{}\t{}\n'.format(str(distance_file), np.median(distances)))
-        break
+    for distance_file in os.listdir(distance_dir):
+        if 'external' in distance_file: continue
+        df = pd.read_csv(distance_dir + distance_file, sep='\t', header=None, names=['user_1', 'user_2', 'distance'])
+        rows.append([distance_file, np.median(df['distance'].tolist())])
+    pd.DataFrame(rows).to_csv(distance_dir + 'median_community_distances', sep='\t', header=None, index=None)
 
 def user_to_internal_users_graph(community):
     '''
@@ -461,9 +457,9 @@ def main(working_dir):
     pool.map(user_topic_distribution_graph, dir_to_iter(working_dir))
 
     pool.terminate()
- 
-    community_median_internal_external_distance_graph(working_dir)
-    median_overall_internal_distance_by_community_size_graph(working_dir)
+# 
+#    community_median_internal_external_distance_graph(working_dir)
+#    median_overall_internal_distance_by_community_size_graph(working_dir)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1]))
