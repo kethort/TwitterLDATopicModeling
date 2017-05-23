@@ -20,8 +20,8 @@ def get_tweets(user_id, api):
             break
 
         except tweepy.TweepError as e:
-            #print(e.message[0]['message'])
-            continue
+            if(int(filter(str.isdigit, str(e))) == 401): break
+            pass
 
         except Exception as e:
             print(str(e))
@@ -37,6 +37,7 @@ def user_status_count(user_id, api):
             count = user.statuses_count
 
     except tweepy.TweepError as e:
+        print(e.message[0]['message'])
         pass
 
     except Exception as e:
@@ -69,8 +70,9 @@ def main(topology):
     
         api = auth.manage_auth_handlers(app_auths)
 
-        # skip user who doesn't Tweet much 
+        # skip user if they don't exist or don't allow public access to their tweets 
         status_count = user_status_count(user, api)
+        if status_count == 0: continue
 
         # skip user if you've already downloaded their tweets
         if os.path.exists(tweets_dir + str(user)):
