@@ -147,12 +147,14 @@ def user_to_external_users_graph(working_dir, community):
         os.makedirs(os.path.dirname(jsd_path), 0o755)
 
     x_axis = np.arange(1, len(comm_doc_vecs))
-    external_users = get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER)
+    external_users = []
     external_median_jsd = []
 
     print('Drawing user to external users graphs for: ' + str(community))
     for user in comm_doc_vecs:
         if not(os.path.exists(jsd_path + user)):
+            if not(external_users):
+                external_users = get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER)
             y_axis = []
             i = 0
             jsd = [0] * (len(comm_doc_vecs) - 1)
@@ -457,9 +459,9 @@ def main(working_dir):
     pool.map(user_topic_distribution_graph, dir_to_iter(working_dir))
 
     pool.terminate()
-# 
-#    community_median_internal_external_distance_graph(working_dir)
-#    median_overall_internal_distance_by_community_size_graph(working_dir)
+ 
+    community_median_internal_external_distance_graph(working_dir)
+    median_overall_internal_distance_by_community_size_graph(working_dir)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1]))
