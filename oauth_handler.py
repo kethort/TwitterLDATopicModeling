@@ -1,50 +1,31 @@
-#!/usr/bin/python
 # https://dev.twitter.com/overview/api/response-codes
 import sys
 import tweepy
+import pandas as pd
 
 def get_access_creds():
     '''
         Twitter API authentication credentials are stored in a file as:
-        
-        consumer_key
-        consumer_secret
-        access_token
-        access_secret 
-
-        with a space in between each set
+            consumer_key \t consumer_secret \t access_token \t access_secret 
     '''
-    credentials = []
     oauths = []
     app_auths = []
 
     print('Building list of developer access credentials...')
-    with open('twitter_dev_accounts.txt', 'r') as infile:
-        for line in infile:
-            if line.strip():
-                credentials.append(line.strip())
-            else:
-                oauth_api, app_api = get_apis(credentials)
-                if(verify_working_credentials(oauth_api)):
-                    oauths.append(oauth_api)
-                    app_auths.append(app_api)
-                credentials = []
+    credentials = pd.read_csv('twitter_dev_accounts', sep='\t', header=None, names=['consumer_key', 'consumer_secret', 'access_token', 'access_secret'])
+
+    for index, row in credentials.iterrows():
+        auth = tweepy.auth.OAuthHandler(str(row['consumer_key']), str(row['consumer_secret']))
+        auth.set_access_token(str(row['access_token']), str(row['access_secret']))
+        app_api = tweepy.API(auth)
+        oauth_api = tweepy.API(auth)
+        #app_api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+        #oauth_api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+        if(verify_working_credentials(oauth_api)):
+            oauths.append(oauth_api)
+            app_auths.append(app_api)
+
     return oauths, app_auths
-
-def get_apis(credentials):
-    consumer_key = credentials[0]
-    consumer_secret = credentials[1]
-    access_token = credentials[2]
-    access_secret = credentials[3]
-    
-    auth = tweepy.auth.OAuthHandler(consumer_key, consumer_secret)
-    app_api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-    #app_api = tweepy.API(auth)
-    auth.set_access_token(access_token, access_secret)
-    oauth_api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-    #oauth_api = tweepy.API(auth)
-
-    return oauth_api, app_api
 
 def verify_working_credentials(api):
     verified = True
