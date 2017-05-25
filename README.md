@@ -67,7 +67,7 @@ Each users‘ topic probability distribution vector is plotted and a pyLDAvis ou
 
 ## Results
 ### Viewing User Topics
-A randomly selected user from the dataset is examined and determined to be a bankruptcy law firm in Arizona. The topic probability distribution vector for the user is generated using the LDA model. The following figure displays the topic probability distribution for the user. The topic probability distribution vector for this Twitter user shows topics 13 and 21 to be the most prominent. 
+A randomly selected user from the dataset is manually examined and determined to be a bankruptcy law firm in Arizona. The topic probability distribution vector for the user is generated using the LDA model. The following figure displays the topic probability distribution for the user. 
 
 <p align="center">
   <img src="/img/user_x_distribution.png" width="500"/>
@@ -79,16 +79,16 @@ The LDA model is visualized in the next figure using pyLDAvis, where each circle
   <img src="/img/user_x_lda_vis.png"/>
 </p>
 
-From this LDA model visualization, topic 13 displays many words about the legal system. Although not shown, topic 21 in the model contains words about economic institutions and corporations. Both these topics describe the selected user quite well. The two topics in the LDA model visualization are also very close together on the map, indicating that the words in those topics are semantically related to each other in this model.
+Referring back to the visualization of this user's topic probability distribution vector, the two topics with the greatest probabilities are 13 and 21. By manually visiting this Twitter user online, a human can deduce that the user is a bankruptcy attorney. From the LDA model visualization, it can be seen that topic 13 displays many words about the legal system. Although not shown in the picture above, topic 21 in the model contains words about economic institutions and corporations. Both of these topics describe the selected user quite well. Visually inspecting how the LDA model categorizes the interests of a user, provides a way to verify that the model can correctly identify topics in Twitter conversations.   
 
 ### Finding Distances Between Users Based on their Interests
-A community of users can be evaluated by calculating the distances between their probability distribution vectors generated from the LDA model. The following figure displays the distance between one user compared to each of the other users in their community as well as the distance from randomly selected users not in the same community. 
+The model has been shown to be effective at identifying accurate topic probability distributions for individual users. Our dataset is composed of small populations of tightly-knit communities which were identified by a community detection algorithm. These communities are found based on the follower relationship between the members. If these users in the communities share a strong enough friendship, it should be possible to identify the strength of these relationships by calculating the distances between each user's topic probability distribution given by the LDA model. The following figure displays the distances found between one user compared to each of the other users in their community as well as the distance from randomly selected users not in the same community.
 
 <p align="center">
   <img src="/img/user_internal_external.png" width="500"/>
 </p>
 
-The following figure displays the separation in the median internal and external distances of all the communities in the dataset. The distance metric used in the comparisons is the Jensen Shannon Divergence which has a range from 0 to the natural log of 2. 
+From this visualization, it can be seen that the conversations of users in the same community as the given user display a stronger similarity to one another than users who are not members of that community. The median distances of the entire set of users in each of the communities can be visualized and the results show a clear separation in distances among users in their own community versus users not in their community. The following figure displays the separation in the median internal and external distances of all the communities in the dataset. The distance metric used in both comparisons is the Jensen Shannon Divergence which has a range from 0 to the natural log of 2. 
 
 <p align="center">
   <img src="/img/community_median_internal_external.png" width="500"/>
