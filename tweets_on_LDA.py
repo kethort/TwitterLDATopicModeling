@@ -5,6 +5,8 @@ import sys
 import re
 import os
 import ast
+import argparse
+import argcomplete
 import multiprocessing
 from functools import partial
 from nltk.tokenize import TweetTokenizer
@@ -98,22 +100,29 @@ def community_document_vectors(doc_vecs, community):
 # dir_prefix: prefix for subdirectories (ie community_1)
 
 # python2.7 tweets_on_LDA.py communities output_dir_name data/twitter/tweets.dict data/twitter/tweets_100_lem_5_pass.model community
-def main(topology, tweets_loc, output_dir, dict_loc, lda_loc, dir_prefix):
-    output_dir += '/'
+def main():
+    parser = argparse.ArgumentParser(description='Create a corpus from a collection of tweets and/or build an LDA model')
+    parser.add_argument('-t', '--topology_file', required=True, action='store', dest='top_file', help='Location of topology file')
+    parser.add_argument('-p', '--dir_prefix', choices=['clique', 'community'], required=True, action='store', dest='dir_prefix', help='Select whether the topology contains cliques or communities')
+    parser.add_argument('-w', '--working_dir', required=True, action='store', dest='working_dir', help='Name of the directory you want to direct output to')
+    parser.add_argument('-l', '--lda_loc', required=True, action='store', dest='lda_loc', help='Location of the saved LDA model')
+    parser.add_argument('-d', '--dict_loc', required=True, action='store', dest='dict_loc', help='Location of dictionary for the model')
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
 
-    # create working folder
+    output_dir = args.working_dir + '/'
     if not os.path.exists(os.path.dirname(output_dir)):
         os.makedirs(os.path.dirname(output_dir), 0o755)
 
     # load wiki dictionary
-    model_dict = corpora.Dictionary.load(dict_loc)
+    model_dict = corpora.Dictionary.load(args.dict_loc)
 
     # load trained wiki model from file
-    lda = models.LdaModel.load(lda_loc)
+    lda = models.LdaModel.load(args.lda_loc)
 
     write_topn_words(output_dir, lda)
 
-    with open(topology, 'r') as inp_file:
+    with open(args.top_file, 'r') as inp_file:
         users = set(str(user) for community in inp_file for user in ast.literal_eval(community))
 
     try:
@@ -124,7 +133,7 @@ def main(topology, tweets_loc, output_dir, dict_loc, lda_loc, dir_prefix):
 
     pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
     func = partial(get_document_vectors, 
-                   tweets_dir=tweets_loc, 
+                   tweets_dir='dnld_tweets/', 
                    document_vectors=document_vectors, 
                    dictionary=model_dict, 
                    lda_model=lda) 
@@ -137,9 +146,9 @@ def main(topology, tweets_loc, output_dir, dict_loc, lda_loc, dir_prefix):
         json.dump(doc_vecs, document_vectors_file, sort_keys=True, indent=4)
 
     print('Building directories')
-    with open(topology, 'r') as topology_file:
+    with open(args.top_file, 'r') as topology_file:
         for i, community in enumerate(topology_file):
-            community_dir = output_dir + dir_prefix + '_' + str(i) + '/'
+            community_dir = output_dir + args.dir_prefix + '_' + str(i) + '/'
 
             if not os.path.exists(os.path.dirname(community_dir)):
                 os.makedirs(os.path.dirname(community_dir), 0o755)
@@ -148,4 +157,4 @@ def main(topology, tweets_loc, output_dir, dict_loc, lda_loc, dir_prefix):
                 json.dump(comm_doc_vecs, comm_docs_file, sort_keys=True, indent=4)
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
+    sys.exit(main())
