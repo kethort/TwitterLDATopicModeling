@@ -7,6 +7,7 @@ import ast
 import json
 import pyprind
 import oauth_handler as auth
+import matplotlib.pyplot as plt
 
 def get_tweets(user_id, api):
     tweets = []
@@ -49,6 +50,20 @@ def write_tweets(tweets, tweet_filename):
     with open(tweet_filename, 'w') as user_tweets:
         for tweet in tweets:
             user_tweets.write(tweet.text.encode("utf-8") + '\n')
+
+def user_tweet_distribution():
+    with open('dnld_tweets/active_users.json', 'r') as infile:
+        d = json.load(infile)
+    x_axis = [d[x] for x in d] 
+    n, bins, patches = plt.hist(x_axis, 80, facecolor='blue', alpha=0.75)
+    plt.plot(bins)
+    plt.xlabel('Number of Tweets')
+    plt.axis([0, max(x_axis), 0, len(d) * .5])
+    plt.ylabel('Number of Users')
+    plt.grid(True)
+    plt.title('Tweets per User')
+    plt.savefig('tweet_distribution')
+    plt.close()
 
 def main(topology):
     inactive_users = {}
@@ -101,6 +116,8 @@ def main(topology):
 
     with open(os.path.join(tweets_dir, 'inactive_users.json'), 'w') as outfile:
         json.dump(inactive_users, outfile, sort_keys=True, indent=4)
+
+    user_tweet_distribution()
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1]))
