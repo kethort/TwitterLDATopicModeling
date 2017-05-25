@@ -28,7 +28,7 @@ def write_topn_words(output_dir, lda_model):
                     outfile.write('\t{}\n'.format(word.encode('utf-8')))
                 outfile.write('\n')	
 
-def preprocess_tweet(document):
+def preprocess_tweet(document, lemma=True):
     with open(document, 'r') as infile:
         text = ' '.join(line.rstrip('\n') for line in infile)
     # convert string into unicode

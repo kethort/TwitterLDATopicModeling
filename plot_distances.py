@@ -310,7 +310,8 @@ def median_overall_internal_distance_by_community_size_graph(working_dir):
     for path, dirs, files in os.walk(working_dir):
         for community in sorted(dirs):
             comm_doc_vecs = open_community_document_vectors_file(os.path.join(path, community + '/community_doc_vecs.json'))
-            if os.path.exists(os.path.join(path, community + 'calculated_distances/median_community_distances')):
+            if(len(comm_doc_vecs) <= 1): continue
+            if os.path.exists(os.path.join(path, community + '/calculated_distances/median_community_distances')):
                 df = pd.read_csv(path + community + '/calculated_distances/median_community_distances', sep='\t', header=None, names=['metric', 'distance'])
                 if 'clique' in community:
                     clq_dists[len(comm_doc_vecs)].append(float(df[df.metric == 'jensen_shannon']['distance']))
@@ -378,9 +379,24 @@ def user_topic_distribution_graph(community):
             plt.savefig(output_path + user)
             plt.close()
 
-def restore_original_dataset(community):
-    copyfile(community + '/community_doc_vecs.json.bak', community + '/community_doc_vecs.json')
-    os.remove(community + '/community_doc_vecs.json.bak')
+def restore_original_dataset(working_dir, community):
+    if os.path.exists(community + '/community_doc_vecs.json.bak'):
+        copyfile(community + '/community_doc_vecs.json.bak', community + '/community_doc_vecs.json')
+        os.remove(community + '/community_doc_vecs.json.bak')
+
+def delete_inactive_communities(community):
+    '''
+    if a clique has 1 or less active members then the community and the clique must be
+    removed from the dataset
+    '''
+    comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
+    if len(comm_doc_vecs) <= 1:
+        if os.path.exists(community + '/community_doc_vecs.json'):
+            print('Removing: ' + str(community))
+            os.remove(community + '/community_doc_vecs.json')
+        if os.path.exists(community.replace('clique', 'community') + '/community_doc_vecs.json'):
+            print('Removing: ' + str(community.replace('clique', 'community')))
+            os.remove(community.replace('clique', 'community') + '/community_doc_vecs.json')
 
 def delete_inactive_users(community):
     '''
@@ -388,7 +404,8 @@ def delete_inactive_users(community):
 
     '''
     comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
-    copyfile(community + '/community_doc_vecs.json', community + '/community_doc_vecs.json.bak') 
+    if comm_doc_vecs:
+        copyfile(community + '/community_doc_vecs.json', community + '/community_doc_vecs.json.bak') 
 
     with open('dnld_tweets/inactive_users.json', 'r') as infile:
         inactive_users = json.load(infile)
@@ -437,10 +454,10 @@ def main():
     pool.map(calculate_internal_distances, dir_to_iter(args.working_dir))
 	
     if args.o:
-        func = partial(delete_inactive_users, args.working_dir)
         pool.map(delete_inactive_users, dir_to_iter(args.working_dir))
-        #pool.map(delete_inactive_communities, dir_to_iter(args.working_dir))
+        pool.map(delete_inactive_communities, dir_to_iter(args.working_dir))
     if args.r:
+        func = partial(restore_original_dataset, args.working_dir)
         pool.map(restore_original_dataset, dir_to_iter(args.working_dir))
     if args.i:
         pool.map(user_to_internal_users_graph, dir_to_iter(args.working_dir)) 
