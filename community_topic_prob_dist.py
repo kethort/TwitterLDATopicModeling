@@ -115,10 +115,7 @@ def average_distance_files_to_iter(aggregated_tweets_dir):
 # python2.7 community_topic_prob_dist.py cliques communities dnld_tweets/ data/twitter/tweets.dict data/twitter/tweets_100_lda_lem_5_pass.model user_topics_100
 def main(clique_top, comm_top, tweets_dir, dict_loc, lda_loc, user_topics_dir):
     start_time = time.time()
-    # load wiki dictionary
     dictionary = corpora.Dictionary.load(dict_loc)
-
-    # load trained wiki model from file
     lda = models.LdaModel.load(lda_loc)
 
     output_dir = 'aggregated_tweets/'

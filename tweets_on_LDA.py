@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-import gensim
-from gensim import utils, corpora, models
 import json
 import sys
 import re
@@ -11,6 +9,8 @@ import multiprocessing
 from functools import partial
 from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords
+import gensim
+from gensim import utils, corpora, models
 
 ignore_words = set(stopwords.words('english'))
 
@@ -30,7 +30,6 @@ def write_topn_words(output_dir, lda_model):
 
 def preprocess_tweet(document):
     with open(document, 'r') as infile:
-        # transform document into one string
         text = ' '.join(line.rstrip('\n') for line in infile)
     # convert string into unicode
     text = gensim.utils.any2unicode(text)
@@ -41,17 +40,17 @@ def preprocess_tweet(document):
     # remove symbols excluding the @, # and \s symbol
     text = re.sub(r'[^\w@#\s]', '', text)
     
-	#return utils.lemmatize(text)
+    return utils.lemmatize(text, allowed_tags=re.compile('(NN)'), stopwords=ignore_words, min_length=3)
 
-    # tokenize words using NLTK Twitter Tokenizer
-    tknzr = TweetTokenizer()
-    text = tknzr.tokenize(text)
-
-    # lowercase, remove words less than len 2 & remove numbers in tokenized list
-    text = [word.lower() for word in text if len(word) > 2 and not word.isdigit()]
-
-    # remove stopwords
-    return [word for word in text if not word in ignore_words]
+#    # tokenize words using NLTK Twitter Tokenizer
+#    tknzr = TweetTokenizer()
+#    text = tknzr.tokenize(text)
+#
+#    # lowercase, remove words less than len 2 & remove numbers in tokenized list
+#    text = [word.lower() for word in text if len(word) > 2 and not word.isdigit()]
+#
+#    # remove stopwords
+#    return [word for word in text if not word in ignore_words]
 
 def get_document_vectors(user_id, **kwargs):
     print('Getting document vectors for: ' + user_id)

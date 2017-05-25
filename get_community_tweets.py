@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # https://dev.twitter.com/overview/api/response-codes
 import sys
 import os
@@ -20,6 +19,7 @@ def get_tweets(user_id, api):
             break
 
         except tweepy.TweepError as e:
+            # 401 means they have restricted access on account
             if(int(filter(str.isdigit, str(e))) == 401): break
             pass
 
@@ -30,14 +30,13 @@ def get_tweets(user_id, api):
             
 def user_status_count(user_id, api):
     count = 0
-
     try: 
         user = api.get_user(user_id=user_id)
         if(user.statuses_count):
             count = user.statuses_count
 
     except tweepy.TweepError as e:
-        print(e.message[0]['message'])
+        #print(e.message[0]['message'])
         pass
 
     except Exception as e:
@@ -70,12 +69,14 @@ def main(topology):
     
         api = auth.manage_auth_handlers(app_auths)
 
-        # skip user if they don't exist or don't allow public access to their tweets 
+        # skip user if they don't exist
         status_count = user_status_count(user, api)
-        if status_count == 0: continue
+        if status_count == 0: 
+            inactive_users[str(user)] = status_count
+            continue
 
         # skip user if you've already downloaded their tweets
-        if os.path.exists(tweets_dir + str(user)):
+        if os.path.exists(os.path.join(tweets_dir, str(user))):
             if status_count > 10:
                 active_users[str(user)] = status_count
             else:
@@ -95,10 +96,10 @@ def main(topology):
         else:
                 inactive_users[str(user)] = 0 
 
-    with open('user_tweet_count.json', 'w') as outfile:
+    with open(os.path.join(tweets_dir, 'active_users.json'), 'w') as outfile:
         json.dump(active_users, outfile, sort_keys=True, indent=4)
 
-    with open('inactive_users.json', 'w') as outfile:
+    with open(os.path.join(tweets_dir, 'inactive_users.json'), 'w') as outfile:
         json.dump(inactive_users, outfile, sort_keys=True, indent=4)
 
 if __name__ == '__main__':
