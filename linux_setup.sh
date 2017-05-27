@@ -23,6 +23,7 @@ sudo pip install virtualenv
 virtualenv -p /usr/bin/python2.7 venv
 source venv/bin/activate
 pip install -r requirements.txt
+sudo activate-global-python-argcomplete
 
 # check for BLAS installation
 python -c 'import numpy; numpy.show_config()'

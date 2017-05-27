@@ -1,14 +1,17 @@
-# -*- coding: utf-8 -*-
-import time
-import csv
 import ast
 import os
 import sys
+import json
 import numpy as np
+import pandas as pd
+import argparse
+import argcomplete
 import matplotlib.pyplot as plt
+import plot_distances as pltd
 import tweets_on_LDA as tlda
 import multiprocessing
 from functools import partial
+from gensim import utils, corpora, models
 
 def aggregate_tweets(i, clique, tweets_dir, output_dir):
     if not os.path.exists(output_dir + 'clique_' + str(i)):
@@ -20,24 +23,16 @@ def aggregate_tweets(i, clique, tweets_dir, output_dir):
                         for line in tweet:
                             outfile.write(str(line))
 
-def draw_dist_graph(inputs, clique_name):
-    output_dir = inputs[0]
-    doc_vecs = inputs[1]
-
-    if not os.path.exists(output_dir + clique_name + '.png'):
-        print('Drawing probability distribution graph for ' + clique_name)
-        y_axis = []
-        x_axis = []
-                        
+def draw_dist_graph(clique_name, **kwargs):
+    if not os.path.exists(kwargs['output_dir'] + clique_name + '.png'):
         try:
-            doc_vector = doc_vecs[clique_name]
+            doc_vector = kwargs['doc_vecs'][clique_name]
         except KeyError:
             return
 
-        for topic_id, dist in enumerate(doc_vector):
-            x_axis.append(topic_id + 1)
-            y_axis.append(dist)
-
+        print('Drawing probability distribution graph for ' + clique_name)
+        x_axis = [topic_id + 1 for topic_id, dist in enumerate(doc_vector)]
+        y_axis = [dist for topic_id, dist in enumerate(doc_vector)]
         plt.bar(x_axis, y_axis, width=1, align='center', color='r')
         plt.xlabel('Topics')
         plt.ylabel('Probability')
@@ -46,27 +41,20 @@ def draw_dist_graph(inputs, clique_name):
         plt.subplots_adjust(bottom=0.2)
         plt.ylim([0, np.max(y_axis) + .01])
         plt.xlim([0, len(x_axis) + 1])
-        plt.savefig(output_dir + clique_name)
+        plt.savefig(kwargs['output_dir'] + clique_name)
         plt.close()
 
 def draw_user_to_clique_graphs(distance_dir, dist_file):
-    x_axis = []
-    y_axis = []
-    fieldnames = ['user', 'clique', 'distance']
-
     if not os.path.exists(distance_dir + dist_file + '.png'):
-        print('Drawing users to clique for: ' + dist_file)
-        with open(distance_dir + dist_file, 'r') as infile:
-            csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-            for row in csv_reader:
-                x_axis.append(str(row['user']))
-                y_axis.append(float(row['distance']))
-
+        print('Drawing community members distance from clique for: ' + dist_file)
+        df = pd.read_csv(distance_dir + dist_file, sep='\t', header=None, names=['user', 'clique', 'distance'])
+        x_axis = [str(row['user']) for idx, row in df.iterrows()]
+        y_axis = [float(row['distance']) for idx, row in df.iterrows()]
         plt.figure(figsize=(20, 10))
         plt.bar(np.arange(1, len(x_axis) + 1, 1), y_axis, width=1, align='center', color='r')
         plt.xlabel('Community Users')
         plt.ylabel('Divergence from Clique')
-        plt.title('Users to Clique ' + dist_file, fontsize=14, fontweight='bold')
+        plt.title('Distances from ' + dist_file + ' to the clique where grown from', fontsize=14, fontweight='bold')
         plt.xticks(np.arange(0, len(x_axis) + 1, 2), np.arange(0, len(x_axis) + 1, 2), rotation='vertical', fontsize=8)
         plt.subplots_adjust(bottom=0.2)
         plt.ylim([0, np.log(2) + .01])
@@ -74,19 +62,19 @@ def draw_user_to_clique_graphs(distance_dir, dist_file):
         plt.savefig(distance_dir + dist_file)
         plt.close()
 
-def draw_community_average_distances(user_topics_dir, distance_file, dist_dict):
-    x_axis = np.arange(1, len(dist_dict) - 1)
-    y_axis = [dist_dict['community_' + str(i)] for i in range(len(dist_dict)) if 'community_' + str(i) in dist_dict]
-
+def draw_community_median_distances(user_topics_dir, distance_file, df):
+    y_axis = [row['avg_distance'] for idx, row in df.iterrows()]
+    x_axis = np.arange(0, len(y_axis))
     plt.figure(figsize=(20, 10))
-    plt.plot(np.arange(1, len(x_axis) + 1), y_axis, 'r')
+    plt.plot(x_axis, y_axis, 'r')
+    plt.fill_between(x_axis, y_axis, color='red', alpha=0.5)
     plt.xlabel('Community ID')
     plt.ylabel('Divergence from Clique')
     plt.title('Community Users Divergence from Clique', fontsize=14, fontweight='bold')
-    plt.xticks(np.arange(0, len(x_axis) + 1, 20), np.arange(0, len(x_axis) + 1, 20), rotation='vertical', fontsize=8)
+    plt.xticks(rotation='vertical', fontsize=8)
     plt.subplots_adjust(bottom=0.2)
     plt.ylim([0, np.log(2) + 0.01])
-    plt.xlim([0, len(x_axis) + 1])
+    plt.xlim([0, len(x_axis) - 1])
     plt.savefig(distance_file)
     plt.close()
 
@@ -102,119 +90,115 @@ def distance_files_to_iter(distance_dir):
         if not dist_file.endswith('.png'):
             yield dist_file
 
-def average_distance_files_to_iter(aggregated_tweets_dir):
+def median_distance_files_to_iter(aggregated_tweets_dir):
     for path, dirs, files in os.walk(aggregated_tweets_dir):
         for user_topics_dir in dirs:
-            yield path + user_topics_dir, path + user_topics_dir + '/community_average_distances'
+            yield path + user_topics_dir, path + user_topics_dir + '/community_median_distances'
         break
 
-# clique_top: clique topology, comm_top: community topology, tweets_dir: path of downloaded tweets dir
-# dict_loc: dictionary, lda_loc: lda model,
-# user_topics_dir: directory where lda model was used in plot_distances to create graphs
-
-# python2.7 community_topic_prob_dist.py cliques communities dnld_tweets/ data/twitter/tweets.dict data/twitter/tweets_100_lda_lem_5_pass.model user_topics_100
-def main(clique_top, comm_top, tweets_dir, dict_loc, lda_loc, user_topics_dir):
-    start_time = time.time()
-    dictionary = corpora.Dictionary.load(dict_loc)
-    lda = models.LdaModel.load(lda_loc)
+def main():
+    parser = argparse.ArgumentParser(description='Plot distances between community users and the cliques they spawned from')
+    parser.add_argument('-c', '--clique_topology_file', required=True, action='store', dest='cliq_top_file', help='Location of clique topology file')
+    parser.add_argument('-y', '--community_topology_file', required=True, action='store', dest='comm_top_file', help='Location of community topology file')
+    parser.add_argument('-l', '--lda_loc', required=True, action='store', dest='lda_loc', help='Location of the saved LDA model')
+    parser.add_argument('-d', '--dict_loc', required=True, action='store', dest='dict_loc', help='Location of dictionary for the model')
+    parser.add_argument('-m', '--lemma', action='store_true', dest='lemma', help='Use this option to lemmatize words')
+    parser.add_argument('-w', '--working_dir', required=True, action='store', dest='working_dir', help="""Name of the directory you want to direct output to.
+                                                                                                          If a working directory was created by previously running
+                                                                                                          tweets_on_LDA.py, you can use the name of that directory
+                                                                                                          and it will use the document_vectors.json file to speed
+                                                                                                          up the process. Otherwise, all the distance vectors
+                                                                                                          for each user must be computed.""")
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    dictionary = corpora.Dictionary.load(args.dict_loc)
+    lda = models.LdaModel.load(args.lda_loc)
 
     output_dir = 'aggregated_tweets/'
-
     if not os.path.exists(os.path.dirname(output_dir)):
         os.makedirs(os.path.dirname(output_dir), 0o755)
+    if not os.path.exists(os.path.dirname(output_dir + args.working_dir + 'distribution_graphs/')):
+        os.makedirs(os.path.dirname(output_dir + args.working_dir + 'distribution_graphs/'), 0o755)
+    if not os.path.exists(os.path.dirname(output_dir + args.working_dir + 'community_user_distances/')):
+        os.makedirs(os.path.dirname(output_dir + args.working_dir + 'community_user_distances/'), 0o755)
 
-    if not os.path.exists(os.path.dirname(output_dir + user_topics_dir + 'distribution_graphs/')):
-        os.makedirs(os.path.dirname(output_dir + user_topics_dir + 'distribution_graphs/'), 0o755)
-
-    if not os.path.exists(os.path.dirname(output_dir + user_topics_dir + 'community_user_distances/')):
-        os.makedirs(os.path.dirname(output_dir + user_topics_dir + 'community_user_distances/'), 0o755)
-
-    tlda.write_topn_words(output_dir + user_topics_dir, lda)
+    tlda.write_topn_words(output_dir + args.working_dir, lda)
 
     clique_size = []
-
-    with open(clique_top, 'r') as infile:
-        for i, clique in enumerate(infile):
-            aggregate_tweets(i, clique, tweets_dir, output_dir
-            clique_size.append(len(ast.literal_eval(clique)))
+    df = pd.read_csv(args.cliq_top_file, sep='\t', header=None)
+    for idx, row in df.iterrows():
+        aggregate_tweets(idx, row[0], 'dnld_tweets/', output_dir)
+        clique_size.append(len(ast.literal_eval(row[0])))
 
     try:
-        with open(output_dir + user_topics_dir + 'all_clique_doc_vecs.json', 'r') as infile:
+        with open(output_dir + args.working_dir + 'all_clique_doc_vecs.json', 'r') as infile:
             clique_vecs = json.load(infile)
     except:
         clique_vecs = {}
 
     pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
-    func = partial(tlda.get_document_vectors, (output_dir, clique_vecs, dictionary, lda)) 
+    func = partial(tlda.get_document_vectors, 
+                   tweets_dir=output_dir, 
+                   document_vectors=clique_vecs, 
+                   dictionary=dictionary, 
+                   lda_model=lda,
+                   lemma=args.lemma) 
     doc_vecs = pool.map(func, cliques_to_iter(output_dir))
     doc_vecs = [item for item in doc_vecs if item is not None]
     clique_vecs.update(dict(doc_vecs))
 
-    with open(output_dir + user_topics_dir + 'all_clique_doc_vecs.json', 'w') as outfile:
+    with open(output_dir + args.working_dir + 'all_clique_doc_vecs.json', 'w') as outfile:
         json.dump(clique_vecs, outfile, sort_keys=True, indent=4)
  
-    func = partial(draw_dist_graph, (output_dir + user_topics_dir + 'distribution_graphs/', clique_vecs))
+    func = partial(draw_dist_graph, 
+                   output_dir=(output_dir + args.working_dir + 'distribution_graphs/'), 
+                   doc_vecs=clique_vecs)
     pool.map(func, cliques_to_iter(output_dir))
 
     try:
-        with open(user_topics_dir + 'all_community_doc_vecs.json', 'r') as infile:
+        with open(args.working_dir + 'document_vectors.json', 'r') as infile:
             all_community_doc_vecs = json.load(infile)
     except:
         all_community_doc_vecs = {}
 
     community_size = []
-
-    with open(comm_top, 'r') as topology:
+    distance_dir = output_dir + args.working_dir + 'community_user_distances/'
+    with open(args.comm_top_file, 'r') as topology:
         for i, community in enumerate(topology):
             community_size.append(len(ast.literal_eval(community)))
-
             func = partial(tlda.get_document_vectors, 
-                           tweets_dir=tweets_dir, 
-                           all_comm_doc_vecs=all_community_doc_vecs, 
+                           tweets_dir='dnld_tweets/', 
+                           document_vectors=all_community_doc_vecs, 
                            dictionary=dictionary, 
-                           lda_model=lda))
-            doc_vecs = pool.map(func, tlda.users_to_iter(community))
+                           lda_model=lda,
+                           lemma=args.lemma)
+            doc_vecs = pool.map(func, [str(user) for user in ast.literal_eval(community)])
             doc_vecs = [item for item in doc_vecs if item is not None]
             doc_vecs = dict(doc_vecs)
 
             print('Writing Jensen Shannon divergences for community ' + str(i))
-            with open(output_dir + user_topics_dir + 'community_user_distances/community_' + str(i), 'w') as outfile:
+            with open(distance_dir + 'community_' + str(i), 'w') as outfile:
                 for user in doc_vecs:
-                    try:
-                        jsd = pltd.jensen_shannon_divergence(clique_vecs['clique_' + str(i)], doc_vecs[user])
-                        outfile.write('{}\t{}\t{}\n'.format(user, 'clique', jsd))
-                    except:
-                        continue
+                    jsd = pltd.jensen_shannon_divergence(clique_vecs['clique_' + str(i)], doc_vecs[user])
+                    outfile.write('{}\t{}\t{}\n'.format(user, 'clique', jsd))
 
-    distance_dir = output_dir + user_topics_dir + 'community_user_distances/'
     func = partial(draw_user_to_clique_graphs, distance_dir)
     pool.map(func, distance_files_to_iter(distance_dir))
 
-   # write average distance of community away from clique 
-   # file format: community_id, average_distance, community_size, clique_size
-    print('Writing average distance of communities away from cliques')
-    fieldnames = ['user', 'clique', 'distance']
-    dist_files = [dist for dist in os.listdir(output_dir + user_topics_dir + 'community_user_distances/') if not '.png' in dist]
+    print('Writing median distance of communities away from cliques')
+    dist_files = [dist for dist in os.listdir(distance_dir) if not '.png' in dist]
     for dist in dist_files:
-        with open(output_dir + user_topics_dir + 'community_user_distances/' + dist, 'r') as infile:
-            csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-            distances = [float(row['distance']) for row in csv_reader if row['distance']]
+        df = pd.read_csv(distance_dir + dist, sep='\t', header=None, names=['user', 'clique', 'distance'])
+        distances = [float(row['distance']) for idx, row in df.iterrows() if row['distance']]
         if distances:
             cid = [int(cid) for cid in dist.split('_') if cid.isdigit()]
-            with open(output_dir + user_topics_dir + 'community_average_distances', 'a') as outfile:
-                outfile.write('{}\t{}\t{}\t{}\n'.format(dist, np.average(distances), clique_size[cid[0]], community_size[cid[0]])) 
+            with open(output_dir + args.working_dir + 'community_median_distances', 'a') as outfile:
+                outfile.write('{}\t{}\t{}\t{}\n'.format(dist, np.median(distances), clique_size[cid[0]], community_size[cid[0]])) 
 
-
-    fieldnames = ['comm_id', 'avg_distance', 'comm_size', 'cliq_size']
-    for user_topics_dir, distance_file in average_distance_files_to_iter(output_dir):
-        with open(distance_file, 'r') as infile:
-            csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
-            draw_community_average_distances(user_topics_dir, distance_file, dict((row['comm_id'], row['avg_distance']) for row in csv_reader))
-
+    for user_topics_dir, distance_file in median_distance_files_to_iter(output_dir):
+        df = pd.read_csv(distance_file, sep='\t', header=None, names=['comm_id', 'avg_distance', 'cliq_size', 'comm_size'])
+        draw_community_median_distances(user_topics_dir, distance_file, df)
     pool.close()
-    print('Runtime: ' + str((((time.time() - start_time) / 60) / 60)) + ' hours')
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]))
-
-
+    sys.exit(main())

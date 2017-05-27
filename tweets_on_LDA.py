@@ -13,10 +13,8 @@ from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords
 import gensim
 from gensim import utils, corpora, models
-
 ignore_words = set(stopwords.words('english'))
 
-# http://stackoverflow.com/questions/15365046/python-removing-pos-tags-from-a-txt-file
 def write_topn_words(output_dir, lda_model):
     if not os.path.exists(output_dir + 'topn_words.txt'):
         print('Writing topn words for LDA model')
@@ -30,7 +28,7 @@ def write_topn_words(output_dir, lda_model):
                     outfile.write('\t{}\n'.format(word.encode('utf-8')))
                 outfile.write('\n')	
 
-def preprocess_tweet(document, lemma=True):
+def preprocess_tweet(document, lemma):
     with open(document, 'r') as infile:
         text = ' '.join(line.rstrip('\n') for line in infile)
     # convert string into unicode
@@ -42,17 +40,18 @@ def preprocess_tweet(document, lemma=True):
     # remove symbols excluding the @, # and \s symbol
     text = re.sub(r'[^\w@#\s]', '', text)
     
-    return utils.lemmatize(text, allowed_tags=re.compile('(NN)'), stopwords=ignore_words, min_length=3)
+    if lemma:
+        return utils.lemmatize(text, stopwords=ignore_words, min_length=3)
 
-#    # tokenize words using NLTK Twitter Tokenizer
-#    tknzr = TweetTokenizer()
-#    text = tknzr.tokenize(text)
-#
-#    # lowercase, remove words less than len 2 & remove numbers in tokenized list
-#    text = [word.lower() for word in text if len(word) > 2 and not word.isdigit()]
-#
-#    # remove stopwords
-#    return [word for word in text if not word in ignore_words]
+    # tokenize words using NLTK Twitter Tokenizer
+    tknzr = TweetTokenizer()
+    text = tknzr.tokenize(text)
+
+    # lowercase, remove words less than len 2 & remove numbers in tokenized list
+    text = [word.lower() for word in text if len(word) > 2 and not word.isdigit()]
+
+    # remove stopwords
+    return [word for word in text if not word in ignore_words]
 
 def get_document_vectors(user_id, **kwargs):
     print('Getting document vectors for: ' + user_id)
@@ -63,7 +62,7 @@ def get_document_vectors(user_id, **kwargs):
         return
 
     if not user_id in kwargs['document_vectors']:
-        document = preprocess_tweet(tweetpath)
+        document = preprocess_tweet(tweetpath, kwargs['lemma'])
 
         # if after preprocessing the list is empty then skip that user
         if not document:
@@ -96,10 +95,6 @@ def community_document_vectors(doc_vecs, community):
             pass
     return comm_doc_vecs
 
-# topology: topology file, output_dir: name of directory to create, dict_loc: dictionary, lda_loc: lda model,
-# dir_prefix: prefix for subdirectories (ie community_1)
-
-# python2.7 tweets_on_LDA.py communities output_dir_name data/twitter/tweets.dict data/twitter/tweets_100_lem_5_pass.model community
 def main():
     parser = argparse.ArgumentParser(description='Create a corpus from a collection of tweets and/or build an LDA model')
     parser.add_argument('-t', '--topology_file', required=True, action='store', dest='top_file', help='Location of topology file')
@@ -107,6 +102,7 @@ def main():
     parser.add_argument('-w', '--working_dir', required=True, action='store', dest='working_dir', help='Name of the directory you want to direct output to')
     parser.add_argument('-l', '--lda_loc', required=True, action='store', dest='lda_loc', help='Location of the saved LDA model')
     parser.add_argument('-d', '--dict_loc', required=True, action='store', dest='dict_loc', help='Location of dictionary for the model')
+    parser.add_argument('-m', '--lemma', action='store_true', dest='lemma', help='Use this option to lemmatize words')
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
@@ -114,10 +110,10 @@ def main():
     if not os.path.exists(os.path.dirname(output_dir)):
         os.makedirs(os.path.dirname(output_dir), 0o755)
 
-    # load wiki dictionary
+    # load dictionary
     model_dict = corpora.Dictionary.load(args.dict_loc)
 
-    # load trained wiki model from file
+    # load trained model from file
     lda = models.LdaModel.load(args.lda_loc)
 
     write_topn_words(output_dir, lda)
@@ -136,7 +132,8 @@ def main():
                    tweets_dir='dnld_tweets/', 
                    document_vectors=document_vectors, 
                    dictionary=model_dict, 
-                   lda_model=lda) 
+                   lda_model=lda,
+                   lemma=args.lemma) 
     doc_vecs = pool.map(func, users)
     doc_vecs = [item for item in doc_vecs if item is not None]
     pool.close()
