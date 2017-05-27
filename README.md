@@ -24,7 +24,14 @@ Users who have less than 5 Tweets on their timeline are considered inactive and 
   <img src="/img/community_size_distribution.png" width="500"/>
 </p>
 
-## Description of Model
+## Overview of Process
+### Flow of Execution
+The goal of processing the collected data for this project is to find a way to categorize the discussions that are contained in the Tweet documents and use that information to analyze the communities. The approach will be to create an LDA topic model from a corpus of known categorical information, transform each of the user's Tweets into a vectorized distribution of topics by querying that model, and use that information to find similarities between other users. 
+
+<p align="center">
+  <img src="/img/lda_architecture.png"/>
+</p>
+
 ### LDA Model
 Latent Dirichlet Allocation, or LDA, is a generative statistical modeling approach where topics are derived from a corpus of known training data, which provides a mechanism for predicting the distribution of topics of unseen documents. 
 
@@ -33,12 +40,6 @@ Latent Dirichlet Allocation, or LDA, is a generative statistical modeling approa
   <br>*Yuhao Yang, “Topic Modeling with LDA”. www.youtube.com/watch?v=ZgyA1Q2ywbM
 </p>
 
-### Flow of Execution
-The goal of processing the collected data for this project is to find a way to categorize the discussions that are contained in the Tweet documents and use that information to analyze the communities. The approach will be to create an LDA topic model from a corpus of known categorical information, transform each of the user's Tweets into a vectorized distribution of topics by querying that model, and use that information to find similarities between other users. 
-
-<p align="center">
-  <img src="/img/lda_architecture.png"/>
-</p>
 
 ### Creating the Model
 #### Training Set
