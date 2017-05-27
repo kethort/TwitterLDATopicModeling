@@ -1,11 +1,14 @@
 import numpy as np
 import pandas as pd
+import sys
 import ast
+import json
+import matplotlib.pyplot as plt
 
 def community_size_distribution():
-    df = pd.read_csv('cliques', sep='\] ', header=None)
+    df = pd.read_csv('cliques', sep='\] ', engine='python',  header=None)
     sizes = [len(ast.literal_eval(row[0])) for idx, row in df.iterrows()]
-    df = pd.read_csv('communities', sep='\] ', header=None)
+    df = pd.read_csv('communities', sep='\] ', engine='python', header=None)
     sizes += [len(ast.literal_eval(row[0])) for idx, row in df.iterrows()]
 
     x_axis = np.arange(0, max(sizes), 10)
@@ -39,3 +42,10 @@ def generate_x_ticks(x_axis):
 
 def bin_by_x_axis(sizes, x_axis):
     return np.bincount([x - 1 for x in np.digitize(sizes, x_axis)])
+
+def main():
+    community_size_distribution()
+    user_tweet_distribution()
+
+if __name__ == '__main__':
+    sys.exit(main())
