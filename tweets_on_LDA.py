@@ -15,66 +15,49 @@ import gensim
 from gensim import utils, corpora, models
 ignore_words = set(stopwords.words('english'))
 
-def write_topn_words(output_dir, lda_model):
-    if not os.path.exists(output_dir + 'topn_words.txt'):
+def write_topn_words(output_dir, lda):
+    if not os.path.exists(output_dir + 'topn_words.json'):
         print('Writing topn words for LDA model')
         reg_ex = re.compile('(?<![\s/])/[^\s/]+(?![\S/])')
-
-        with open(output_dir + 'topn_words.txt', 'w') as outfile:
-            for i in range(lda_model.num_topics):
-                outfile.write('{}\n'.format('Topic #' + str(i + 1) + ': '))
-                for word, prob in lda_model.show_topic(i, topn=20):
-                    word = reg_ex.sub('', word)
-                    outfile.write('\t{}\n'.format(word.encode('utf-8')))
-                outfile.write('\n')	
+        topn_words = {'Topic ' + str(i + 1): [reg_ex.sub('', word) for word, prob in lda.show_topic(i, topn=20)] for i in range(0, lda.num_topics)}
+        with open(output_dir + 'topn_words.json', 'w') as outfile:
+            json.dump(topn_words, outfile, sort_keys=True, indent=4)
 
 def preprocess_tweet(document, lemma):
     with open(document, 'r') as infile:
         text = ' '.join(line.rstrip('\n') for line in infile)
     # convert string into unicode
     text = gensim.utils.any2unicode(text)
-
     # remove URL's
     text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', text)
-
     # remove symbols excluding the @, # and \s symbol
     text = re.sub(r'[^\w@#\s]', '', text)
-    
     if lemma:
         return utils.lemmatize(text, stopwords=ignore_words, min_length=3)
-
     # tokenize words using NLTK Twitter Tokenizer
     tknzr = TweetTokenizer()
     text = tknzr.tokenize(text)
-
     # lowercase, remove words less than len 2 & remove numbers in tokenized list
     text = [word.lower() for word in text if len(word) > 2 and not word.isdigit()]
-
     # remove stopwords
     return [word for word in text if not word in ignore_words]
 
 def get_document_vectors(user_id, **kwargs):
     print('Getting document vectors for: ' + user_id)
-
     if os.path.exists(kwargs['tweets_dir'] + user_id):
         tweetpath = kwargs['tweets_dir'] + user_id
     else:
         return
-
     if not user_id in kwargs['document_vectors']:
         document = preprocess_tweet(tweetpath, kwargs['lemma'])
-
         # if after preprocessing the list is empty then skip that user
         if not document:
             return
-
         # create bag of words from input document
         doc_bow = kwargs['dictionary'].doc2bow(document)
-
         # queries the document against the LDA model and associates the data with probabalistic topics
         doc_lda = get_doc_topics(kwargs['lda_model'], doc_bow)
         dense_vec = gensim.matutils.sparse2full(doc_lda, kwargs['lda_model'].num_topics)
-    
         # build dictionary of user document vectors <k, v>(user_id, vec)
         return (user_id, dense_vec.tolist())
     else:
@@ -112,15 +95,12 @@ def main():
 
     # load dictionary
     model_dict = corpora.Dictionary.load(args.dict_loc)
-
     # load trained model from file
     lda = models.LdaModel.load(args.lda_loc)
-
     write_topn_words(output_dir, lda)
 
     with open(args.top_file, 'r') as inp_file:
         users = set(str(user) for community in inp_file for user in ast.literal_eval(community))
-
     try:
         with open(output_dir + 'document_vectors.json', 'r') as all_community_file:
             document_vectors = json.load(all_community_file)
@@ -146,7 +126,6 @@ def main():
     with open(args.top_file, 'r') as topology_file:
         for i, community in enumerate(topology_file):
             community_dir = output_dir + args.dir_prefix + '_' + str(i) + '/'
-
             if not os.path.exists(os.path.dirname(community_dir)):
                 os.makedirs(os.path.dirname(community_dir), 0o755)
             comm_doc_vecs = community_document_vectors(doc_vecs, community)
