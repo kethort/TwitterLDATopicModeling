@@ -118,13 +118,13 @@ def calculate_external_distances(community):
         if not(external_users):
             external_users = get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER)
         i = 0
-        jsd = np.zeros(len(comm_doc_vecs))
-        hel = np.zeros(len(comm_doc_vecs))
-        euc = np.zeros(len(comm_doc_vecs))
-        cos = np.zeros(len(comm_doc_vecs))
+        jsd = np.zeros(len(comm_doc_vecs) - 1)
+        hel = np.zeros(len(comm_doc_vecs) - 1)
+        euc = np.zeros(len(comm_doc_vecs) - 1)
+        cos = np.zeros(len(comm_doc_vecs) - 1)
         # running time is uffed like a beach here
-        while(i < len(comm_doc_vecs) * NUM_ITER):
-            for n in range(0, len(comm_doc_vecs)):
+        while(i < (len(comm_doc_vecs) * NUM_ITER) - 1):
+            for n in range(0, len(comm_doc_vecs) - 1):
                 # rotate stock since it's possible to exceed amount of all users in entire dataset
                 rand_user = external_users.pop()
                 external_users.insert(0, rand_user)
@@ -148,9 +148,9 @@ def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
     internal_users = set(user for user in comm_doc_vecs)
     external_users = set(user for user in all_community_doc_vecs) - internal_users
     if(len(comm_doc_vecs) * NUM_ITER > len(external_users)):
-        return external_users
+        return list(external_users)
     else:
-        return random.sample(external_users, len(comm_doc_vecs) * NUM_ITER)
+        return list(random.sample(external_users, len(comm_doc_vecs) * NUM_ITER))
 
 def user_internal_external_graphs(community):
     '''

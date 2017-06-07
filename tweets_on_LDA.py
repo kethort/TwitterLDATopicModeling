@@ -121,8 +121,9 @@ def main():
     pool.join()
     doc_vecs = dict(doc_vecs)
 
+    document_vectors.update(doc_vecs)
     with open(output_dir + 'document_vectors.json', 'w') as document_vectors_file:
-        json.dump(doc_vecs, document_vectors_file, sort_keys=True, indent=4)
+        json.dump(document_vectors, document_vectors_file, sort_keys=True, indent=4)
 
     print('Building directories')
     with open(args.top_file, 'r') as topology_file:
