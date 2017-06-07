@@ -85,6 +85,7 @@ def main():
     parser.add_argument('-w', '--working_dir', required=True, action='store', dest='working_dir', help='Name of the directory you want to direct output to')
     parser.add_argument('-l', '--lda_loc', required=True, action='store', dest='lda_loc', help='Location of the saved LDA model')
     parser.add_argument('-d', '--dict_loc', required=True, action='store', dest='dict_loc', help='Location of dictionary for the model')
+    parser.add_argument('-u', '--unseen_docs', required=True, action='store', dest='unseen_docs', help='Directory containing unseen documents')
     parser.add_argument('-m', '--lemma', action='store_true', dest='lemma', help='Use this option to lemmatize words')
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -109,7 +110,7 @@ def main():
 
     pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
     func = partial(get_document_vectors, 
-                   tweets_dir='dnld_tweets/', 
+                   tweets_dir=args.unseen_docs, 
                    document_vectors=document_vectors, 
                    dictionary=model_dict, 
                    lda_model=lda,
@@ -117,6 +118,7 @@ def main():
     doc_vecs = pool.map(func, users)
     doc_vecs = [item for item in doc_vecs if item is not None]
     pool.close()
+    pool.join()
     doc_vecs = dict(doc_vecs)
 
     with open(output_dir + 'document_vectors.json', 'w') as document_vectors_file:

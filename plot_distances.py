@@ -17,6 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import distance
 from collections import defaultdict
+from collections import OrderedDict
 from gensim import corpora, models, matutils
 
 def calculate_internal_distances(community):
@@ -27,37 +28,22 @@ def calculate_internal_distances(community):
         Dictionary <k, v>(user_id, distribution_vector)
 
     '''
-    if not os.path.exists(os.path.dirname(community + '/calculated_distances/')):
-        os.makedirs(os.path.dirname(community + '/calculated_distances/'), 0o755)
-    
-    cos_file = community + '/calculated_distances/cosine'  
-    hell_file = community + '/calculated_distances/hellinger'
-    euc_file = community + '/calculated_distances/euclidean'
-    jen_shan_file = community + '/calculated_distances/jensen_shannon'
-
-    outfiles = [cos_file, hell_file, euc_file, jen_shan_file]
-
-    for outfile in outfiles:
-       if os.path.exists(outfile):
-           os.remove(outfile)
-    
     comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
     if(len(comm_doc_vecs) <= 1): return
-
-    print('Calculating user distances for: ' + community)
-    with open(cos_file, 'a') as cosfile, open(hell_file, 'a') as hellfile, open(euc_file, 'a') as eucfile, open(jen_shan_file, 'a') as jenshanfile:
-        for key in sorted(comm_doc_vecs):
-            user = key
-            # only necessary to compare each user with any other user once
-            vec_1 = comm_doc_vecs.pop(key)
-
-            for key_2 in sorted(comm_doc_vecs):
-                vec_2 = comm_doc_vecs[key_2]
-                cosfile.write('{}\t{}\t{}\n'.format(user, key_2, distance.cosine(vec_1, vec_2)))
-                hellfile.write('{}\t{}\t{}\n'.format(user, key_2, hellinger_distance(vec_1, vec_2)))
-                eucfile.write('{}\t{}\t{}\n'.format(user, key_2, distance.euclidean(vec_1, vec_2)))
-                jenshanfile.write('{}\t{}\t{}\n'.format(user, key_2, jensen_shannon_divergence(vec_1, vec_2)))
-    calculate_median_community_distances(community)
+    output = []
+    comm_name = community.strip('/').split('/')[1]
+    print('Calculating user distances for: {}'.format(comm_name))
+    for key in sorted(comm_doc_vecs):
+        user = key
+        # only necessary to compare each user with any other user once
+        vec_1 = comm_doc_vecs.pop(key)
+        for key_2 in sorted(comm_doc_vecs):
+            vec_2 = comm_doc_vecs[key_2]
+            output.append([comm_name, user, key_2, distance.cosine(vec_1, vec_2), 
+                           distance.euclidean(vec_1, vec_2),
+                           hellinger_distance(vec_1, vec_2), 
+                           jensen_shannon_divergence(vec_1, vec_2)])
+    return output
 
 def hellinger_distance(P, Q):
     return distance.euclidean(np.sqrt(np.array(P)), np.sqrt(np.array(Q))) / np.sqrt(2)
@@ -68,48 +54,29 @@ def jensen_shannon_divergence(P, Q):
     _M = 0.5 * (_P + _Q)
     return 0.5 * (entropy(_P, _M) + entropy(_Q, _M))
 
-def calculate_median_community_distances(community):
-    '''
-    calculates and stores the median JSD for each community into a file
-    
-    '''
-    if os.path.exists(community + '/calculated_distances/median_community_distances'):
-        os.remove(community + '/calculated_distances/median_community_distances')
-    
-    comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
-       
-    rows = []
-    distance_dir = community + '/calculated_distances/'
-    print('Calculating median distances for: ' + community)
-    for distance_file in os.listdir(distance_dir):
-        if 'external' in distance_file: continue
-        df = pd.read_csv(distance_dir + distance_file, sep='\t', header=None, names=['user_1', 'user_2', 'distance'])
-        rows.append([distance_file, np.median(df['distance'].tolist())])
-    pd.DataFrame(rows).to_csv(distance_dir + 'median_community_distances', sep='\t', header=None, index=None)
-
-def user_to_internal_users_graph(community):
+def user_distance_graphs(df, measure, community):
     '''
     creates graph displaying each user in the community comparing the jensen shannon divergences between
     their probability distribution vectors against other users in same community
 
     x-axis: users in community, y-axis: distance from observed user 
     '''
-    comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
-    if(len(comm_doc_vecs) <= 1): return
-
-    jsd_path = community + '/user_to_internal_users_graphs/jensen_shannon/'
-
+    jsd_path = os.path.join(community, measure + '_user_distance_graphs/jensen_shannon/')
     if not os.path.exists(os.path.dirname(jsd_path)):
         os.makedirs(os.path.dirname(jsd_path), 0o755)
 
-    print('Drawing internal distance graphs for community: ' + str(community))
+    comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
+    if(len(comm_doc_vecs) <= 1): return
+
+    working_dir = community.strip('/').split('/')[0]
+    comm_name = community.strip('/').split('/')[1]
+    print('Drawing {} distance graphs for community: {}'.format(measure, comm_name))
     x_axis = np.arange(1, len(comm_doc_vecs))
-    df = pd.read_csv(community + '/calculated_distances/jensen_shannon', sep='\t', header=None, names=['user_1', 'user_2', 'distance'])
+    df = df.loc[df['cid'] == comm_name]
     for user in comm_doc_vecs:
         if not os.path.exists(jsd_path + user + '.png'):
-            new_df = df[(df.user_1 == int(user)) | (df.user_2 == int(user))]
-            new_df.to_csv(jsd_path + str(user), sep='\t', header=None, index=None)
-            y_axis = new_df['distance'].tolist()
+            new_df = df[(df.user_a == user) | (df.user_b == user)]
+            y_axis = new_df['jen'].tolist()
             draw_scatter_graph(user, 'Community Members', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + 0.1), jsd_path + user)
 
 def draw_scatter_graph(title, x_label, y_label, x_axis, y_axis, min_x, max_x, min_y, max_y, output_path):
@@ -126,7 +93,7 @@ def draw_scatter_graph(title, x_label, y_label, x_axis, y_axis, min_x, max_x, mi
     plt.savefig(output_path)
     plt.close(fig)
 
-def user_to_external_users_graph(working_dir, community):
+def calculate_external_distances(community):
     '''
     creates graph displaying each user in the community comparing the jensen shannon divergences 
     against randomly selected users from outside communities.
@@ -134,53 +101,41 @@ def user_to_external_users_graph(working_dir, community):
     x-axis: users outside of community, y-axis: distance from observed user 
 
     '''
-    NUM_ITER = 10
+    NUM_ITER = 2 
+    working_dir = community.strip('/').split('/')[0]
+    comm_name = '/'.join(community.strip('/').split('/')[1:])
+
     comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
     if(len(comm_doc_vecs) <= 1): return
-
-    with open(working_dir + 'document_vectors.json', 'r') as all_community_doc_vecs_file:
-        all_community_doc_vecs = json.load(all_community_doc_vecs_file)
-
-    jsd_path = community + '/user_to_external_users_graphs/jensen_shannon/'
-
-    if not os.path.exists(os.path.dirname(jsd_path)):
-        os.makedirs(os.path.dirname(jsd_path), 0o755)
+    all_community_doc_vecs = open_community_document_vectors_file(os.path.join(working_dir, 'document_vectors.json'))
 
     x_axis = np.arange(1, len(comm_doc_vecs))
     external_users = []
-    external_median_jsd = []
-
-    print('Drawing user to external users graphs for: ' + str(community))
+    output = []
+    print('Calculating external distances for: ' + str(community))
     for user in comm_doc_vecs:
-        if not(os.path.exists(jsd_path + user)):
-            if not(external_users):
-                external_users = get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER)
-            y_axis = []
-            i = 0
-            jsd = [0] * (len(comm_doc_vecs) - 1)
-            # running time is uffed like a beach here
-            while(i < (len(comm_doc_vecs) - 1) * NUM_ITER):
-                for n in range(0, len(comm_doc_vecs) - 1):
-                    # circular queue because it's possible to exceed amount of all users in entire dataset
-                    rand_user = external_users.pop()
-                    external_users.insert(0, rand_user)
-                    jsd[n] += jensen_shannon_divergence(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                    i += 1
-
-            with open(jsd_path + user, 'w') as graph_numbers:
-                for div in jsd:
-                    graph_numbers.write('{}\t{}\t{}\n'.format(user, 'random user', div/NUM_ITER))
-                    y_axis.append(div/NUM_ITER)
-            external_median_jsd.append(np.median(y_axis))
-            if not os.path.exists(jsd_path + user + '.png'):
-                draw_scatter_graph(user, 'External Users', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + .01), jsd_path + user)
-
-        else:
-            df = pd.read_csv(jsd_path + user, sep='\t', header=None, names=['user', 'rand_user', 'distance'])
-            external_median_jsd.append(np.median(df['distance'].tolist()))
-
-    with open(community + '/calculated_distances/median_external_community_distances', 'w') as outfile:
-        outfile.write('{}\t{}\n'.format('jensen_shannon', np.median(external_median_jsd)))
+        meta = [comm_name, user, 'random_user']
+        if not(external_users):
+            external_users = get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER)
+        i = 0
+        jsd = np.zeros(len(comm_doc_vecs))
+        hel = np.zeros(len(comm_doc_vecs))
+        euc = np.zeros(len(comm_doc_vecs))
+        cos = np.zeros(len(comm_doc_vecs))
+        # running time is uffed like a beach here
+        while(i < len(comm_doc_vecs) * NUM_ITER):
+            for n in range(0, len(comm_doc_vecs)):
+                # rotate stock since it's possible to exceed amount of all users in entire dataset
+                rand_user = external_users.pop()
+                external_users.insert(0, rand_user)
+                jsd[n] += jensen_shannon_divergence(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+                hel[n] += hellinger_distance(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+                euc[n] += distance.euclidean(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+                cos[n] += distance.cosine(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+                i += 1
+        dists = zip(cos/NUM_ITER, euc/NUM_ITER, hel/NUM_ITER, jsd/NUM_ITER)
+        output += [meta + list(item) for item in dists]
+    return output 
 
 def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
     '''
@@ -190,15 +145,12 @@ def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
       10 * (len(users in the community) - 1)
 
     '''
-    max_external_users = len(all_community_doc_vecs) - len(comm_doc_vecs)
     internal_users = set(user for user in comm_doc_vecs)
-    external_users = []
-    while True:
-        rand_external_user = random.sample(list(all_community_doc_vecs), 1)[0]
-        if rand_external_user not in set(external_users) and rand_external_user not in internal_users:
-            external_users.append(rand_external_user)
-        if(len(external_users) == (len(comm_doc_vecs) - 1) * NUM_ITER or len(external_users) == max_external_users):
-            return external_users
+    external_users = set(user for user in all_community_doc_vecs) - internal_users
+    if(len(comm_doc_vecs) * NUM_ITER > len(external_users)):
+        return external_users
+    else:
+        return random.sample(external_users, len(comm_doc_vecs) * NUM_ITER)
 
 def user_internal_external_graphs(community):
     '''
@@ -206,6 +158,9 @@ def user_internal_external_graphs(community):
     graphs, puts plotted data into community directories
 
     '''
+    working_dir = community.strip('/').split('/')[0]
+    comm_name = '/'.join(community.strip('/').split('/')[1:])
+    columns=['cid', 'user_a', 'user_b', 'cos', 'euc', 'hel', 'jen']
     comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
     if(len(comm_doc_vecs) <= 1): return
 
@@ -217,16 +172,18 @@ def user_internal_external_graphs(community):
     print('Drawing internal vs external distance for: ' + str(community))
     for user in comm_doc_vecs:
         if not os.path.exists(jsd_path + user + '.png'):
-            int_df = pd.read_csv(community + '/user_to_internal_users_graphs/jensen_shannon/' + user, sep='\t', header=None, names=['user_1', 'user_2', 'distance'])
-            y_axis = int_df['distance'].tolist()
+            df = pd.read_csv(os.path.join(working_dir, 'internal_distances'), sep='\t')
+            df = df.loc[df['cid'] == comm_name]
+            int_df = df[(df.user_a == user) | (df.user_b == user)]
+            y_axis = int_df['jen'].tolist()
             plt.plot(np.arange(0, len(y_axis)), y_axis, 'b')
 
-            ext_df = pd.read_csv(community + '/user_to_external_users_graphs/jensen_shannon/' + user, sep='\t', header=None, names=['user_1', 'user_2', 'distance'])
-            y_axis = ext_df['distance'].tolist()
+            df = pd.read_csv(os.path.join(working_dir, 'external_distances'), sep='\t')
+            df = df.loc[df['cid'] == comm_name]
+            ext_df = df[(df.user_a == user) | (df.user_b == user)]
+            y_axis = ext_df['jen'].tolist()
             plt.plot(np.arange(0, len(y_axis)), y_axis, 'g')
-
-            pd.concat([int_df, ext_df]).to_csv(jsd_path + str(user), sep='\t', header=None, index=None)
-
+            pd.concat([int_df, ext_df]).to_csv(jsd_path + str(user), sep='\t', header=columns, index=None)
             plt.ylabel('Divergence')
             plt.title('Divergence from ' + user + ' to Internal & External Users')
             plt.ylim([0, np.log(2)])
@@ -238,16 +195,16 @@ def user_internal_external_graphs(community):
             plt.savefig(jsd_path + user)
             plt.close()
 
-def community_median_internal_external_distance_graph(working_dir):
+def community_aggregated_internal_external_distance_graphs(working_dir):
     '''
     graphs displaying median internal vs median external distances for all the communities & cliques
 
     '''
-    int_clq_y_axis, int_comm_y_axis = community_median_internal_external_distance_graph_y_axes(working_dir, 'median_community_distances')
-    ext_clq_y_axis, ext_comm_y_axis = community_median_internal_external_distance_graph_y_axes(working_dir, 'median_external_community_distances')
+    int_clq_y_axis, int_comm_y_axis = community_aggregated_internal_external_distance_graphs_y_axes(os.path.join(working_dir, 'internal_aggregated_distances'))
+    ext_clq_y_axis, ext_comm_y_axis = community_aggregated_internal_external_distance_graphs_y_axes(os.path.join(working_dir, 'external_aggregated_distances'))
 
     output_path = working_dir + 'median_clique_internal_external_divergence'
-    draw_dual_line_graph('Median Internal & External Community Divergence', 'Clique ID', 
+    draw_dual_line_graph('Median Internal & External Clique Divergence', 'Clique ID', 
                          'Median Jensen Shannon Divergence', int_clq_y_axis, ext_clq_y_axis,
                          'Internal', 'External', output_path)
 
@@ -257,28 +214,20 @@ def community_median_internal_external_distance_graph(working_dir):
                          'Internal', 'External', output_path)
 
     output_path = working_dir + 'median_clique_community_internal_divergence'
-    draw_dual_line_graph('Median Internal & External Community Divergence', 'Clique-Community ID', 
+    draw_dual_line_graph('Median Internal Clique/Community Divergence', 'Clique-Community ID', 
                          'Median Jensen Shannon Divergence', int_clq_y_axis, int_comm_y_axis,
                          'Clique', 'Community', output_path)
 
     output_path = working_dir + 'median_clique_community_external_divergence'
-    draw_dual_line_graph('Median Internal & External Community Divergence', 'Clique-Community ID', 
+    draw_dual_line_graph('Median External Clique/Community Divergence', 'Clique-Community ID', 
                          'Median Jensen Shannon Divergence', ext_clq_y_axis, ext_comm_y_axis,
                          'Clique', 'Community', output_path)
 
-def community_median_internal_external_distance_graph_y_axes(working_dir, filename):
-    clq_y_axis = []
-    comm_y_axis = []
-    for path, dirs, files in os.walk(working_dir):
-        for community in sorted(dirs):
-            distance_dir = path + community + '/calculated_distances/'
-            if os.path.exists(distance_dir + filename):
-                df = pd.read_csv(distance_dir + filename, sep='\t', header=None, names=['metric', 'distance'])
-                if 'clique' in community:
-                    clq_y_axis.append(float(df[df.metric == 'jensen_shannon']['distance']))
-                else:
-                    comm_y_axis.append(float(df[df.metric == 'jensen_shannon']['distance']))
-        break # restrict depth of folder traversal to 1
+def community_aggregated_internal_external_distance_graphs_y_axes(filename):
+    columns = ['cos_med', 'cos_mean', 'euc_med', 'euc_mean', 'hel_med', 'hel_mean', 'jen_med', 'jen_mean']
+    df = pd.read_csv(filename, sep='\t')
+    clq_y_axis = df[df['cid'].str.contains('clique')]['jen_med'].tolist()
+    comm_y_axis = df[df['cid'].str.contains('community')]['jen_med'].tolist()
     return clq_y_axis, comm_y_axis
 
 def draw_dual_line_graph(title, x_label, y_label, y_axis_1, y_axis_2, line_1_label, line_2_label, output_path):
@@ -298,52 +247,47 @@ def draw_dual_line_graph(title, x_label, y_label, y_axis_1, y_axis_2, line_1_lab
     plt.savefig(output_path)
     plt.close(fig)
 
-def median_overall_internal_distance_by_community_size_graph(working_dir):
+def aggregated_internal_distance_by_community_size_graph(working_dir):
     '''
     displays the overall median internal clique and internal community divergence in relation
     to the sizes of the cliques or communities
 
     ''' 
-    clq_dists = defaultdict(list)
-    comm_dists = defaultdict(list)
-
-    for path, dirs, files in os.walk(working_dir):
-        for community in sorted(dirs):
-            comm_doc_vecs = open_community_document_vectors_file(os.path.join(path, community + '/community_doc_vecs.json'))
-            if(len(comm_doc_vecs) <= 1): continue
-            if os.path.exists(os.path.join(path, community + '/calculated_distances/median_community_distances')):
-                df = pd.read_csv(path + community + '/calculated_distances/median_community_distances', sep='\t', header=None, names=['metric', 'distance'])
-                if 'clique' in community:
-                    clq_dists[len(comm_doc_vecs)].append(float(df[df.metric == 'jensen_shannon']['distance']))
-                else:
-                    comm_dists[len(comm_doc_vecs)].append(float(df[df.metric == 'jensen_shannon']['distance']))
-        break
-
-    clq_x_axis = []
-    clq_y_axis = []
-    comm_x_axis = []
-    comm_y_axis = []
+    agg_cols = ['cos_med', 'cos_mean', 'euc_med', 'euc_mean', 'hel_med', 'hel_mean', 'jen_med', 'jen_mean', 'size']
+    agg_metrics = OrderedDict([('cos',['median', 'mean']), ('euc', ['median', 'mean']), ('hel', ['median', 'mean']), ('jen', ['median', 'mean']), ('cid', 'size')])
+    dub_agg_metrics = OrderedDict([('cos_med', 'median'), ('cos_mean', 'mean'), ('euc_med', 'median'), ('euc_mean', 'mean'), ('hel_med', 'median'), ('hel_mean', 'mean'), ('jen_med', 'median'), ('jen_mean', 'mean')])
+    df = pd.read_csv(os.path.join(working_dir, 'internal_distances'), sep='\t')
+    clq_df = df[df['cid'].str.contains('clique')].groupby(['cid']).agg(agg_metrics)
+    clq_df.columns = agg_cols
+    clq_df = clq_df.reset_index().groupby(['size']).agg(dub_agg_metrics).reset_index()
+    
+    comm_df = df[df['cid'].str.contains('community')].groupby(['cid']).agg(agg_metrics)
+    comm_df.columns = agg_cols
+    comm_df = comm_df.reset_index().groupby(['size']).agg(dub_agg_metrics).reset_index()
+    
+    ax = clq_df.plot(kind='scatter', marker='x', color='g', x='size', y='jen_med')
+    comm_df.plot(kind='scatter', color='b', x='size', y='jen_med', ax=ax, 
+                 ylim=(0, np.log(2) + .001), xlim=(-5, comm_df['size'].max() + 5),
+                 title='Median Community/Clique Similarity by Size')
     print('Drawing overall median clique & community divergence by size graph')
-
     plt.ylabel('Median Jensen Shannon Divergence\n')
     plt.xlabel('Size of Community/Clique')
-    plt.title('Median Community/Clique Similarity Distribution')
-
-    for clq_size in clq_dists:
-        clq_x_axis.append(clq_size)
-        clq_y_axis.append(np.mean(clq_dists[clq_size]))
-
-    for comm_size in comm_dists:
-        comm_x_axis.append(comm_size)
-        comm_y_axis.append(np.mean(comm_dists[comm_size]))
-
-    output_path = working_dir + 'median_overall_internal_distance_by_community_size'
-    plt.scatter(clq_x_axis, clq_y_axis, marker='x', color='g')
-    plt.scatter(comm_x_axis, comm_y_axis, marker='.', color='b')
-    plt.ylim([0, np.log(2) + .001])
-    plt.xlim([0, max(comm_x_axis) + 1])
     plt.legend(['Clique', 'Community'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
     plt.subplots_adjust(bottom=0.2)
+    output_path = working_dir + 'median_overall_internal_distance_by_community_size'
+    plt.savefig(output_path)
+    plt.close()
+
+    ax = clq_df.plot(kind='scatter', marker='x', color='g', x='size', y='jen_mean')
+    comm_df.plot(kind='scatter', color='b', x='size', y='jen_mean', ax=ax, 
+                 ylim=(0, np.log(2) + .001), xlim=(-5, comm_df['size'].max() + 5),
+                 title='Average Community/Clique Similarity by Size')
+    print('Drawing overall average clique & community divergence by size graph')
+    plt.ylabel('Median Jensen Shannon Divergence\n')
+    plt.xlabel('Size of Community/Clique')
+    plt.legend(['Clique', 'Community'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+    plt.subplots_adjust(bottom=0.2)
+    output_path = working_dir + 'average_overall_internal_distance_by_community_size'
     plt.savefig(output_path)
     plt.close()
 
@@ -379,7 +323,8 @@ def user_topic_distribution_graph(community):
             plt.savefig(output_path + user)
             plt.close()
 
-def restore_original_dataset(working_dir, community):
+def restore_original_dataset(community):
+    working_dir = community.strip('/').split('/')[0]
     if os.path.exists(community + '/community_doc_vecs.json.bak'):
         copyfile(community + '/community_doc_vecs.json.bak', community + '/community_doc_vecs.json')
         os.remove(community + '/community_doc_vecs.json.bak')
@@ -451,19 +396,34 @@ def main():
     args = parser.parse_args()
 
     pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
-    pool.map(calculate_internal_distances, dir_to_iter(args.working_dir))
-	
+    columns=['cid', 'user_a', 'user_b', 'cos', 'euc', 'hel', 'jen']
+    agg_cols = ['cos_med', 'cos_mean', 'euc_med', 'euc_mean', 'hel_med', 'hel_mean', 'jen_med', 'jen_mean']
+    agg_metrics = OrderedDict([('cos',['median', 'mean']), ('euc', ['median', 'mean']), ('hel', ['median', 'mean']), ('jen', ['median', 'mean'])])
     if args.o:
         pool.map(delete_inactive_users, dir_to_iter(args.working_dir))
         pool.map(delete_inactive_communities, dir_to_iter(args.working_dir))
     if args.r:
-        func = partial(restore_original_dataset, args.working_dir)
         pool.map(restore_original_dataset, dir_to_iter(args.working_dir))
     if args.i:
-        pool.map(user_to_internal_users_graph, dir_to_iter(args.working_dir)) 
-    if args.e:
-        func = partial(user_to_external_users_graph, args.working_dir)
+        distances = pool.map(calculate_internal_distances, dir_to_iter(args.working_dir)) 
+        distances = [x for item in distances for x in item]
+        df = pd.DataFrame(distances, columns=columns)
+        df.to_csv(os.path.join(args.working_dir, 'internal_distances'), sep='\t', header=columns, index=None)
+        func = partial(user_distance_graphs, df, 'internal')
         pool.map(func, dir_to_iter(args.working_dir))
+        df = df.groupby(['cid']).agg(agg_metrics)
+        df.columns = (agg_cols)
+        df.to_csv(os.path.join(args.working_dir, 'internal_aggregated_distances'), sep='\t', index_label='cid')
+    if args.e:
+        distances = pool.map(calculate_external_distances, dir_to_iter(args.working_dir)) 
+        distances = [x for item in distances for x in item]
+        df = pd.DataFrame(distances, columns=columns)
+        df.to_csv(os.path.join(args.working_dir, 'external_distances'), sep='\t', header=columns, index=None)
+        func = partial(user_distance_graphs, df, 'external')
+        pool.map(func, dir_to_iter(args.working_dir))
+        df = df.groupby(['cid']).agg(agg_metrics)
+        df.columns = (agg_cols)
+        df.to_csv(os.path.join(args.working_dir, 'external_aggregated_distances'), sep='\t', index_label='cid')
     if args.d:
         pool.map(user_internal_external_graphs, dir_to_iter(args.working_dir))
     if args.t:
@@ -472,9 +432,9 @@ def main():
     pool.terminate()
  
     if args.m:
-        community_median_internal_external_distance_graph(args.working_dir)
+        community_aggregated_internal_external_distance_graphs(args.working_dir)
     if args.s:
-        median_overall_internal_distance_by_community_size_graph(args.working_dir)
+        aggregated_internal_distance_by_community_size_graph(args.working_dir)
 
 if __name__ == '__main__':
     sys.exit(main())
