@@ -174,16 +174,16 @@ def user_internal_external_graphs(community):
         if not os.path.exists(jsd_path + user + '.png'):
             df = pd.read_csv(os.path.join(working_dir, 'internal_distances'), sep='\t')
             df = df.loc[df['cid'] == comm_name]
-            int_df = df[(df.user_a == user) | (df.user_b == user)]
+            int_df = df[(df.user_a == int(user)) | (df.user_b == int(user))]
             y_axis = int_df['jen'].tolist()
             plt.plot(np.arange(0, len(y_axis)), y_axis, 'b')
 
             df = pd.read_csv(os.path.join(working_dir, 'external_distances'), sep='\t')
             df = df.loc[df['cid'] == comm_name]
-            ext_df = df[(df.user_a == user) | (df.user_b == user)]
+            ext_df = df[df.user_a == int(user)]
             y_axis = ext_df['jen'].tolist()
             plt.plot(np.arange(0, len(y_axis)), y_axis, 'g')
-            pd.concat([int_df, ext_df]).to_csv(jsd_path + str(user), sep='\t', header=columns, index=None)
+            #pd.concat([int_df, ext_df]).to_csv(jsd_path + str(user), sep='\t', header=columns, index=None)
             plt.ylabel('Divergence')
             plt.title('Divergence from ' + user + ' to Internal & External Users')
             plt.ylim([0, np.log(2)])
