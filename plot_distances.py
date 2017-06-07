@@ -33,13 +33,11 @@ def calculate_internal_distances(community):
     output = []
     comm_name = community.strip('/').split('/')[1]
     print('Calculating user distances for: {}'.format(comm_name))
-    for key in sorted(comm_doc_vecs):
-        user = key
-        # only necessary to compare each user with any other user once
-        vec_1 = comm_doc_vecs.pop(key)
-        for key_2 in sorted(comm_doc_vecs):
-            vec_2 = comm_doc_vecs[key_2]
-            output.append([comm_name, user, key_2, distance.cosine(vec_1, vec_2), 
+    for user_1 in sorted(comm_doc_vecs):
+        vec_1 = comm_doc_vecs.pop(user_1)
+        for user_2 in sorted(comm_doc_vecs):
+            vec_2 = comm_doc_vecs[user_2]
+            output.append([comm_name, user_1, user_2, distance.cosine(vec_1, vec_2), 
                            distance.euclidean(vec_1, vec_2),
                            hellinger_distance(vec_1, vec_2), 
                            jensen_shannon_divergence(vec_1, vec_2)])
@@ -54,7 +52,7 @@ def jensen_shannon_divergence(P, Q):
     _M = 0.5 * (_P + _Q)
     return 0.5 * (entropy(_P, _M) + entropy(_Q, _M))
 
-def user_distance_graphs(df, measure, community):
+def user_distance_graphs(df, measure, ovrwrt, community):
     '''
     creates graph displaying each user in the community comparing the jensen shannon divergences between
     their probability distribution vectors against other users in same community
@@ -74,7 +72,7 @@ def user_distance_graphs(df, measure, community):
     x_axis = np.arange(1, len(comm_doc_vecs))
     df = df.loc[df['cid'] == comm_name]
     for user in comm_doc_vecs:
-        if not os.path.exists(jsd_path + user + '.png'):
+        if not os.path.exists(jsd_path + user + '.png') or ovrwrt:
             new_df = df[(df.user_a == user) | (df.user_b == user)]
             y_axis = new_df['jen'].tolist()
             draw_scatter_graph(user, 'Community Members', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + 0.1), jsd_path + user)
@@ -98,10 +96,15 @@ def calculate_external_distances(community):
     creates graph displaying each user in the community comparing the jensen shannon divergences 
     against randomly selected users from outside communities.
 
+    NUM_ITER is a variable for smoothing the sample by calculating the median of the distances 
+    between a user and n random users equal in size to the user's community over NUM_ITER
+    times. The result is then normalized back to distance metric constraints. 
+    **set NUM_ITER to 1 to ignore this process
+
     x-axis: users outside of community, y-axis: distance from observed user 
 
     '''
-    NUM_ITER = 2 
+    NUM_ITER = 5 
     working_dir = community.strip('/').split('/')[0]
     comm_name = '/'.join(community.strip('/').split('/')[1:])
 
@@ -151,7 +154,7 @@ def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
     else:
         return list(random.sample(external_users, len(comm_doc_vecs) * NUM_ITER))
 
-def user_internal_external_graphs(community):
+def user_internal_external_graphs(ovrwrt, community):
     '''
     user to internal against user to external distance
     graphs, puts plotted data into community directories
@@ -170,7 +173,7 @@ def user_internal_external_graphs(community):
 
     print('Drawing internal vs external distance for: ' + str(community))
     for user in comm_doc_vecs:
-        if not os.path.exists(jsd_path + user + '.png'):
+        if not os.path.exists(jsd_path + user + '.png') or ovrwrt:
             df = pd.read_csv(os.path.join(working_dir, 'internal_distances'), sep='\t')
             df = df.loc[df['cid'] == comm_name]
             int_df = df[(df.user_a == int(user)) | (df.user_b == int(user))]
@@ -289,7 +292,7 @@ def aggregated_internal_distance_by_community_size_graph(working_dir):
     plt.savefig(output_path)
     plt.close()
 
-def user_topic_distribution_graph(community):
+def user_topic_distribution_graph(ovrwrt, community):
     '''
     Each of the user's topic probability distribution vectors can be visualized using 
     this function
@@ -303,7 +306,7 @@ def user_topic_distribution_graph(community):
 
     comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
     for user in comm_doc_vecs:
-        if not os.path.exists(output_path + user + '.png'):
+        if not os.path.exists(output_path + user + '.png') or ovrwrt:
             y_axis = []
             x_axis = []
             for topic_id, dist in enumerate(comm_doc_vecs[user]):
@@ -377,7 +380,7 @@ def dir_to_iter(working_dir):
         break
 
 def main():
-    parser = argparse.ArgumentParser(description="""Calculate median distances of users in communities and use those distances to plot graphs
+    parser = argparse.ArgumentParser(description="""Calculate various distances of users in communities and use those distances to plot graphs
                                                     to run all without disturbing the dataset:
                                                       python plot_distances.py -w working_dir/ -iedtms
                                                  """)
@@ -390,6 +393,7 @@ def main():
     parser.add_argument('-t', action='store_true', help='Draw topic distribution graphs for each user')
     parser.add_argument('-m', action='store_true', help='Draw median distance graphs for communities')
     parser.add_argument('-s', action='store_true', help='Draw distance vs size distribution graphs for communities')
+    parser.add_argument('-x', '--overwrite', action='store_true', dest='ovrwrt', help='Use this option to overwrite current graphs')
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
@@ -407,7 +411,7 @@ def main():
         distances = [x for item in distances for x in item]
         df = pd.DataFrame(distances, columns=columns)
         df.to_csv(os.path.join(args.working_dir, 'internal_distances'), sep='\t', header=columns, index=None)
-        func = partial(user_distance_graphs, df, 'internal')
+        func = partial(user_distance_graphs, df, 'internal', args.ovrwrt)
         pool.map(func, dir_to_iter(args.working_dir))
         df = df.groupby(['cid']).agg(agg_metrics)
         df.columns = (agg_cols)
@@ -417,15 +421,17 @@ def main():
         distances = [x for item in distances for x in item]
         df = pd.DataFrame(distances, columns=columns)
         df.to_csv(os.path.join(args.working_dir, 'external_distances'), sep='\t', header=columns, index=None)
-        func = partial(user_distance_graphs, df, 'external')
+        func = partial(user_distance_graphs, df, 'external', args.ovrwrt)
         pool.map(func, dir_to_iter(args.working_dir))
         df = df.groupby(['cid']).agg(agg_metrics)
         df.columns = (agg_cols)
         df.to_csv(os.path.join(args.working_dir, 'external_aggregated_distances'), sep='\t', index_label='cid')
     if args.d:
-        pool.map(user_internal_external_graphs, dir_to_iter(args.working_dir))
+        func = partial(user_internal_external_graphs, args.ovrwrt)
+        pool.map(func, dir_to_iter(args.working_dir))
     if args.t:
-        pool.map(user_topic_distribution_graph, dir_to_iter(args.working_dir))
+        func = partial(user_topic_distribution_graph, args.ovrwrt)
+        pool.map(func, dir_to_iter(args.working_dir))
 
     pool.terminate()
  
