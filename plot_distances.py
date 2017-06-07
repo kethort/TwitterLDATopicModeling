@@ -170,29 +170,28 @@ def user_internal_external_graphs(community):
 
     print('Drawing internal vs external distance for: ' + str(community))
     for user in comm_doc_vecs:
-        #if not os.path.exists(jsd_path + user + '.png'):
-        df = pd.read_csv(os.path.join(working_dir, 'internal_distances'), sep='\t')
-        df = df.loc[df['cid'] == comm_name]
-        int_df = df[(df.user_a == int(user)) | (df.user_b == int(user))]
-        y_axis = int_df['jen'].tolist()
-        plt.plot(np.arange(0, len(y_axis)), y_axis, 'b')
+        if not os.path.exists(jsd_path + user + '.png'):
+            df = pd.read_csv(os.path.join(working_dir, 'internal_distances'), sep='\t')
+            df = df.loc[df['cid'] == comm_name]
+            int_df = df[(df.user_a == int(user)) | (df.user_b == int(user))]
+            y_axis = int_df['jen'].tolist()
+            plt.plot(np.arange(0, len(y_axis)), y_axis, 'b')
 
-        df = pd.read_csv(os.path.join(working_dir, 'external_distances'), sep='\t')
-        df = df.loc[df['cid'] == comm_name]
-        ext_df = df[df.user_a == int(user)]
-        y_axis = ext_df['jen'].tolist()
-        plt.plot(np.arange(0, len(y_axis)), y_axis, 'g')
-        #pd.concat([int_df, ext_df]).to_csv(jsd_path + str(user), sep='\t', header=columns, index=None)
-        plt.ylabel('Divergence')
-        plt.title('Divergence from ' + user + ' to Internal & External Users')
-        plt.ylim([0, np.log(2)])
-        plt.xlabel('Users')
-        #plt.xlim([0, len(y_axis) - 1])
-        plt.xticks(np.arange(0, len(y_axis), 2))
-        plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
-        plt.subplots_adjust(bottom=0.2)
-        plt.savefig(jsd_path + user)
-        plt.close()
+            df = pd.read_csv(os.path.join(working_dir, 'external_distances'), sep='\t')
+            df = df.loc[df['cid'] == comm_name]
+            ext_df = df[df.user_a == int(user)]
+            y_axis = ext_df['jen'].tolist()
+            plt.plot(np.arange(0, len(y_axis)), y_axis, 'g')
+            plt.ylabel('Divergence')
+            plt.title('Divergence from ' + user + ' to Internal & External Users')
+            plt.ylim([0, np.log(2)])
+            plt.xlabel('Users')
+            plt.xlim([0, len(y_axis) - 1])
+            plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+            plt.locator_params(nbins=25)
+            plt.subplots_adjust(bottom=0.2)
+            plt.savefig(jsd_path + user)
+            plt.close()
 
 def community_aggregated_internal_external_distance_graphs(working_dir):
     '''
