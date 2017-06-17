@@ -22,6 +22,7 @@ def get_tweets(user_id, api):
 
         except tweepy.TweepError as e:
             # 401 or 404 means they have restricted access on account
+            if not str(e): break
             if(int(filter(str.isdigit, str(e))) == 401): break
             if(int(filter(str.isdigit, str(e))) == 404): break
             print('get_tweets: ' + str(e))
@@ -77,11 +78,11 @@ def main(topology):
     bar = pyprind.ProgPercent(len(comm_set), track_time=True, title='Downloading Tweets') 
     while comm_set:
         user = comm_set.pop()
-        bar.update(item_id=user)
+        bar.update(item_id=str(user) + '\t')
  
-        if str(user) in inactive_users:
+        if str(user) in inactive_users or str(user) in active_users:
             continue
- 
+
         api = auth.manage_auth_handlers(app_auths)
 
         # skip user if they don't exist or are inactive

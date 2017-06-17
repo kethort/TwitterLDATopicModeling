@@ -46,7 +46,7 @@ def manage_auth_handlers(auths):
             if status_limit > 180:
                 return api
         except tweepy.TweepError as e:
-            print('manage_auth_handlers' + str(e))
+            #print('manage_auth_handlers ' + str(e))
             pass
         finally:
             if index == (len(auths) - 1):
