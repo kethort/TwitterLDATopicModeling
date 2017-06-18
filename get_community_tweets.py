@@ -66,7 +66,7 @@ def write_json(tweets_dir, active_users, inactive_users):
 def main(topology):
     inactive_users = read_json('dnld_tweets/inactive_users.json')
     active_users = read_json('dnld_tweets/active_users.json')
-    _, app_auths = auth.get_access_creds()
+    oauths = auth.get_access_creds()
     tweets_dir = './dnld_tweets/'
 
     with open(topology, 'r') as inp_file:
@@ -83,7 +83,7 @@ def main(topology):
         if str(user) in inactive_users or str(user) in active_users:
             continue
 
-        api = auth.manage_auth_handlers(app_auths)
+        api = auth.manage_auth_handlers(oauths)
 
         # skip user if they don't exist or are inactive
         status_count = user_status_count(user, api)
