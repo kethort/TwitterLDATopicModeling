@@ -39,6 +39,24 @@ pip2 -r install requirements.txt
 3. Generate topic probability distributions for Tweet documents - tweets_on_LDA.py
 4. Calculate distances between Tweet documents and graph them - plot_distances.py
 
+### Sample Visualizations
+
+<p align="center">
+  <img src="/img/user_x_distribution.png" width="500"/>
+</p>
+
+<p align="center">
+  <img src="/img/user_x_lda_vis.png"/>
+</p>
+
+<p align="center">
+  <img src="/img/user_internal_external.png" width="500"/>
+</p>
+
+<p align="center">
+  <img src="/img/community_median_internal_external.png" width="500"/>
+</p>
+
 ## Built With
 
 * [Gensim](https://radimrehurek.com/gensim/) - Package for creating LDA model
