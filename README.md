@@ -24,9 +24,7 @@ Run linux_setup.sh:
 ./linux_setup.sh
 ```
 
-The requirements.txt file contains the necessary Python packages.
-
-Install using: 
+Install Python packages using pip: 
 
 ```
 pip2 -r install requirements.txt
