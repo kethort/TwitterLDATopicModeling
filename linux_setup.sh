@@ -10,9 +10,6 @@ sudo apt-get -y install vim git build-essential libblas-dev liblapack-dev libatl
 export LAPACK=/usr/lib/liblapack.so
 export ATLAS=/usr/lib/libatlas.so
 
-# download the repository
-git clone https://www.github.com/kenneth-orton/twitter_LDA_topic_modeling
-
 # create virtual_env and install requirements
 cd twitter_LDA_topic_modeling/
 wget https://bootstrap.pypa.io/get-pip.py
@@ -33,9 +30,7 @@ printf 'd\nstopwords\nq' | python -c 'import nltk; nltk.download()'
 mv patches/english ~/nltk_data/corpora/stopwords
 
 # wikicorpus patch 
-# 1. increases the min size of acceptable articles to 200 words
-# 2. uses a stopword list to filter words during lemmatization 
-# 3. selects only noun POS tags during lemmatization
+# increases the min size of acceptable articles to 200 words
 
 cp patches/wikicorpus.py venv/lib/python2.7/site-packages/gensim/corpora/
 cp patches/prog_class.py venv/lib/python2.7/site-packages/pyprind/prog_class.py
