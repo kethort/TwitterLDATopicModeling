@@ -11,34 +11,29 @@ import oauth_handler as auth
 import matplotlib.pyplot as plt
 
 def get_tweets(user_id, api):
-    tweets = []
     cursor = tweepy.Cursor(api.user_timeline, user_id).pages()
-
     while True:
         try:
-            for page in cursor:
-                tweets += page
-            break
+            tweets = [page for page in cursor]
 
         except tweepy.TweepError as e:
+            tweets = []
             api_codes = [401, 404, 500]
             if not str(e): break
             if(int(filter(str.isdigit, str(e))) in api_codes): break
             print('get_tweets: ' + str(e))
-            pass
 
     return tweets
 
 def user_status_count(user_id, api):
-    count = 0
     try: 
         user = api.get_user(user_id=user_id)
         if(user.statuses_count):
             count = user.statuses_count
 
     except tweepy.TweepError as e:
+        count = 0
         #print(e.message[0]['message'])
-        return count
 
     finally:
         return count
