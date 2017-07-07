@@ -7,12 +7,15 @@ import sys
 import argparse
 import argcomplete
 import scipy
+import tqdm
+import MySQLdb
 from shutil import copyfile
 from scipy.spatial import distance
 from scipy.linalg import norm
 from scipy.stats import entropy
 import multiprocessing
 from functools import partial
+import sqlite3
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import distance
@@ -20,28 +23,50 @@ from collections import defaultdict
 from collections import OrderedDict
 from gensim import corpora, models, matutils
 
-def calculate_internal_distances(community):
-    '''
-        for each user find the distance from every other user using their probability distribution vectors
+def insert_into_db(table_name, comm_name, working_dir, attr):
+    conn = MySQLdb.connect(host='localhost', user='root', passwd='yetanotherpassword', db='distances')
+    c = conn.cursor()
+    c.execute('SET sql_notes=0')
+    c.execute('CREATE TABLE IF NOT EXISTS {tn} ({idx} {idxt}, {f0} {f0t}, {f1} {f1t},\
+               {f2} {f2t}, {f3} {f3t}, {f4} {f4t}, {f5} {f5t}, {f6} {f6t})'\
+               .format(tn=table_name, idx='uid', idxt='INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT', f0='cid', f0t='TEXT',
+                       f1='user_a', f1t='TEXT', f2='user_b', f2t='TEXT', f3='cos', f3t='REAL', f4='euc', 
+                       f4t='REAL', f5='hel', f5t='REAL', f6='jen', f6t='REAL'))
+    c.execute('SET sql_notes=1')
+    try:
+        if table_name == 'internal_distances':
+            c.execute("""INSERT INTO internal_distances (cid, user_a, user_b, cos, euc, hel, jen) VALUES (%s, %s, %s, %s, %s, %s, %s)""", (comm_name, attr[0], attr[1], attr[2], attr[3], attr[4], attr[5]))
+        if table_name == 'external_distances':
+            c.execute("""INSERT INTO external_distances (cid, user_a, user_b, cos, euc, hel, jen) VALUES (%s, %s, %s, %s, %s, %s, %s)""", (comm_name, attr[0], attr[1], attr[2], attr[3], attr[4], attr[5]))
 
-        This method executes quickly so everytime it is run the older files are overwritten 
-        Dictionary <k, v>(user_id, distribution_vector)
+    except Exception as e:
+        print('Database insert exception {}'.format(e)) 
+    conn.commit()
+    conn.close()
 
-    '''
-    comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
-    if(len(comm_doc_vecs) <= 1): return
-    output = []
-    comm_name = community.strip('/').split('/')[1]
-    print('Calculating user distances for: {}'.format(comm_name))
+def internal_distances_to_iter(comm_doc_vecs): 
     for user_1 in sorted(comm_doc_vecs):
         vec_1 = comm_doc_vecs.pop(user_1)
         for user_2 in sorted(comm_doc_vecs):
             vec_2 = comm_doc_vecs[user_2]
-            output.append([comm_name, user_1, user_2, distance.cosine(vec_1, vec_2), 
-                           distance.euclidean(vec_1, vec_2),
-                           hellinger_distance(vec_1, vec_2), 
-                           jensen_shannon_divergence(vec_1, vec_2)])
-    return output
+            yield [user_1, user_2, distance.cosine(vec_1, vec_2), distance.euclidean(vec_1, vec_2),
+                   hellinger_distance(vec_1, vec_2), jensen_shannon_divergence(vec_1, vec_2)]
+
+def calculate_internal_distances(community):
+    '''
+        for each user find the distance from every other user using their probability distribution vectors
+        n(n-1)/2 transactions
+    '''
+    pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
+    comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
+    if(len(comm_doc_vecs) <= 1): return
+    distances = []
+    working_dir = community.strip('/').split('/')[0]
+    comm_name = community.strip('/').split('/')[1]
+
+    func = partial(insert_into_db, 'internal_distances', comm_name, working_dir)
+    pool.map(func, internal_distances_to_iter(comm_doc_vecs))
+    pool.close()
 
 def hellinger_distance(P, Q):
     return distance.euclidean(np.sqrt(np.array(P)), np.sqrt(np.array(Q))) / np.sqrt(2)
@@ -91,6 +116,26 @@ def draw_scatter_graph(title, x_label, y_label, x_axis, y_axis, min_x, max_x, mi
     plt.savefig(output_path)
     plt.close(fig)
 
+def external_distances_to_iter(comm_doc_vecs, all_community_doc_vecs):
+    external_users = []
+    for user in comm_doc_vecs:
+        if not(external_users):
+            external_users = get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER)
+        i = 0
+        cos = 0
+        euc = 0
+        hel = 0
+        jen = 0
+        while(i < (len(comm_doc_vecs) - 1) * NUM_ITER):
+            rand_user = external_users.pop()
+            external_users.insert(0, rand_user)
+            cos += distance.cosine(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+            euc += distance.euclidean(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+            hel += hellinger_distance(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+            jen += jensen_shannon_divergence(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
+            i += 1
+        yield [user, 'rand_user', cos/NUM_ITER, euc/NUM_ITER, hel/NUM_ITER, jen/NUM_ITER]
+
 def calculate_external_distances(community):
     '''
     creates graph displaying each user in the community comparing the jensen shannon divergences 
@@ -107,37 +152,12 @@ def calculate_external_distances(community):
     NUM_ITER = 5 
     working_dir = community.strip('/').split('/')[0]
     comm_name = '/'.join(community.strip('/').split('/')[1:])
-
     comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
     if(len(comm_doc_vecs) <= 1): return
     all_community_doc_vecs = open_community_document_vectors_file(os.path.join(working_dir, 'document_vectors.json'))
-
-    external_users = []
-    output = []
-    print('Calculating external distances for: ' + str(community))
-    for user in comm_doc_vecs:
-        meta = [comm_name, user, 'random_user']
-        if not(external_users):
-            external_users = get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER)
-        i = 0
-        jsd = np.zeros(len(comm_doc_vecs) - 1)
-        hel = np.zeros(len(comm_doc_vecs) - 1)
-        euc = np.zeros(len(comm_doc_vecs) - 1)
-        cos = np.zeros(len(comm_doc_vecs) - 1)
-        # running time is uffed like a beach here
-        while(i < (len(comm_doc_vecs) - 1) * NUM_ITER):
-            for n in range(0, len(comm_doc_vecs) - 1):
-                # rotate stock since it's possible to exceed amount of all users in entire dataset
-                rand_user = external_users.pop()
-                external_users.insert(0, rand_user)
-                jsd[n] += jensen_shannon_divergence(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                hel[n] += hellinger_distance(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                euc[n] += distance.euclidean(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                cos[n] += distance.cosine(all_community_doc_vecs[user], all_community_doc_vecs[rand_user])
-                i += 1
-        dists = zip(cos/NUM_ITER, euc/NUM_ITER, hel/NUM_ITER, jsd/NUM_ITER)
-        output += [meta + list(item) for item in dists]
-    return output 
+    func = partial(insert_into_db, 'external_distances', comm_name, working_dir)
+    pool.map(func, external_distances_to_iter(comm_doc_vecs))
+    pool.close()
 
 def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
     '''
@@ -353,7 +373,7 @@ def delete_inactive_users(community):
     if comm_doc_vecs:
         copyfile(community + '/community_doc_vecs.json', community + '/community_doc_vecs.json.bak') 
 
-    with open('dnld_tweets/inactive_users.json', 'r') as infile:
+    with open('../topic_modeling/inactive_users.json', 'r') as infile:
         inactive_users = json.load(infile)
 
     for user in inactive_users:
@@ -401,37 +421,53 @@ def main():
     columns=['cid', 'user_a', 'user_b', 'cos', 'euc', 'hel', 'jen']
     agg_cols = ['cos_med', 'cos_mean', 'euc_med', 'euc_mean', 'hel_med', 'hel_mean', 'jen_med', 'jen_mean']
     agg_metrics = OrderedDict([('cos',['median', 'mean']), ('euc', ['median', 'mean']), ('hel', ['median', 'mean']), ('jen', ['median', 'mean'])])
+    total_work = len([dir for dir in os.listdir('info_map_comms/') if os.path.isdir(os.path.join('info_map_comms', dir))])
     if args.o:
-        pool.map(delete_inactive_users, dir_to_iter(args.working_dir))
-        pool.map(delete_inactive_communities, dir_to_iter(args.working_dir))
+        print('Removing inactive users')
+        for _ in tqdm.tqdm(pool.imap_unordered(delete_inactive_users, dir_to_iter(args.working_dir)), total=total_work): pass
+        print('Removing inactive communities')
+        for _ in tqdm.tqdm(pool.imap_unordered(delete_inactive_communities, dir_to_iter(args.working_dir)), total=total_work): pass
     if args.r:
-        pool.map(restore_original_dataset, dir_to_iter(args.working_dir))
+        print('Restoring original dataset')
+        for _ in tqdm.tqdm(pool.imap(restore_original_dataset, dir_to_iter(args.working_dir)), total=total_work): pass
     if args.i:
-        distances = pool.map(calculate_internal_distances, dir_to_iter(args.working_dir)) 
-        distances = [x for item in distances for x in item]
-        df = pd.DataFrame(distances, columns=columns)
-        df.to_csv(os.path.join(args.working_dir, 'internal_distances'), sep='\t', header=columns, index=None)
-        func = partial(user_distance_graphs, df, 'internal', args.ovrwrt)
-        pool.map(func, dir_to_iter(args.working_dir))
+        print('Calculating internal user distances')
+        for community in tqdm.tqdm(dir_to_iter(args.working_dir), total=total_work):
+            calculate_internal_distances(community)
+        print('Compiling dataframe from result')
+        conn = MySQLdb.connect(host='localhost', user='root', passwd='yetanotherpassword', db='distances')
+        df = pd.read_sql_query('SELECT cid, user_a, user_b, cos, euc, hel, jen FROM internal_distances;', conn)
+        conn.close()
+        df.to_csv(os.path.join(args.working_dir, 'internal_distances'), sep='\t')
+#        func = partial(user_distance_graphs, df, 'internal', args.ovrwrt)
+#        pool.map(func, dir_to_iter(args.working_dir))
         df = df.groupby(['cid']).agg(agg_metrics)
         df.columns = (agg_cols)
         df.to_csv(os.path.join(args.working_dir, 'internal_aggregated_distances'), sep='\t', index_label='cid')
+        pool.close()
     if args.e:
-        distances = pool.map(calculate_external_distances, dir_to_iter(args.working_dir)) 
-        distances = [x for item in distances for x in item]
-        df = pd.DataFrame(distances, columns=columns)
-        df.to_csv(os.path.join(args.working_dir, 'external_distances'), sep='\t', header=columns, index=None)
-        func = partial(user_distance_graphs, df, 'external', args.ovrwrt)
-        pool.map(func, dir_to_iter(args.working_dir))
+        print('Calculating external user distances')
+        for community in tqdm.tqdm(dir_to_iter(args.working_dir), total=total_work):
+            calculate_external_distances(community)
+        print('Compiling dataframe from result')
+        conn = MySQLdb.connect(host='localhost', user='root', passwd='yetanotherpassword', db='distances')
+        df = pd.read_sql_query('SELECT cid, user_a, user_b, cos, euc, hel, jen FROM external_distances;', conn)
+        conn.close()
+        df.to_csv(os.path.join(args.working_dir, 'internal_distances'), sep='\t')
+#        func = partial(user_distance_graphs, df, 'external', args.ovrwrt)
+#        pool.map(func, dir_to_iter(args.working_dir))
         df = df.groupby(['cid']).agg(agg_metrics)
         df.columns = (agg_cols)
         df.to_csv(os.path.join(args.working_dir, 'external_aggregated_distances'), sep='\t', index_label='cid')
+        pool.close()
     if args.d:
         func = partial(user_internal_external_graphs, args.ovrwrt)
         pool.map(func, dir_to_iter(args.working_dir))
+        pool.close()
     if args.t:
         func = partial(user_topic_distribution_graph, args.ovrwrt)
         pool.map(func, dir_to_iter(args.working_dir))
+        pool.close()
 
     pool.terminate()
  

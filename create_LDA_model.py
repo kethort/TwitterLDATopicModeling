@@ -17,7 +17,6 @@ import argcomplete
 from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords
 
-
 DEFAULT_DICT_SIZE = 100000
 ignore_words = set(stopwords.words('english'))
 
