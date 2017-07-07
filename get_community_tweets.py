@@ -11,35 +11,29 @@ import oauth_handler as auth
 import matplotlib.pyplot as plt
 
 def get_tweets(user_id, api):
-    tweets = []
     cursor = tweepy.Cursor(api.user_timeline, user_id).pages()
-
     while True:
         try:
-            for page in cursor:
-                tweets += page
-            break
+            tweets = [page for page in cursor]
 
         except tweepy.TweepError as e:
-            # 401 or 404 means they have restricted access on account
+            tweets = []
+            api_codes = [401, 404, 500]
             if not str(e): break
-            if(int(filter(str.isdigit, str(e))) == 401): break
-            if(int(filter(str.isdigit, str(e))) == 404): break
+            if(int(filter(str.isdigit, str(e))) in api_codes): break
             print('get_tweets: ' + str(e))
-            pass
 
     return tweets
-            
+
 def user_status_count(user_id, api):
-    count = 0
     try: 
         user = api.get_user(user_id=user_id)
         if(user.statuses_count):
             count = user.statuses_count
 
     except tweepy.TweepError as e:
+        count = 0
         #print(e.message[0]['message'])
-        pass
 
     finally:
         return count
@@ -74,12 +68,12 @@ def main(topology):
 
     if not os.path.exists(os.path.dirname(tweets_dir)):
         os.makedirs(os.path.dirname(tweets_dir), 0o755)
-    
+
     bar = pyprind.ProgPercent(len(comm_set), track_time=True, title='Downloading Tweets') 
     while comm_set:
         user = comm_set.pop()
         bar.update(item_id=str(user) + '\t')
- 
+
         if str(user) in inactive_users or str(user) in active_users:
             continue
 
@@ -106,7 +100,7 @@ def main(topology):
             active_users[str(user)] = status_count
         else:
             inactive_users[str(user)] = 0 
-        
+
         write_json(tweets_dir, active_users, inactive_users)
 #    user_tweet_distribution()
 
