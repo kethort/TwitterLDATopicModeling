@@ -1,9 +1,6 @@
 atlas==0.27.0
-boto3==1.4.4
 bz2file==0.98
-click==6.6
 gensim==0.13.1
-matplotlib==1.5.1
 nltk==3.2.1
 numpy==1.11.2
 Pattern==2.6
@@ -13,3 +10,9 @@ scipy==0.18.1
 tweepy==3.5.0
 argcomplete==1.8.2
 pandas==0.19.1
+click===0.4.21.1ubuntu0.2
+Cython==0.24.1
+jsonschema==2.5.1
+matplotlib==1.5.3
+pandas==0.19.0
+tweepy==3.5.0
