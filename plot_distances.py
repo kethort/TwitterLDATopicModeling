@@ -43,7 +43,6 @@ def calculate_internal_distances(community):
             for key_2 in sorted(comm_doc_vecs):
                 vec_2 = comm_doc_vecs[key_2]
                 out.write('{}\t{}\t{}\n'.format(user, key_2, jensen_shannon_divergence(vec_1, vec_2)))
-    #calculate_median_community_distances(community)
 
 def jensen_shannon_divergence(P, Q):
     _P = np.array(P) / norm(np.array(P), ord=1)
@@ -130,6 +129,7 @@ def calculate_external_distances(community):
     x-axis: users outside of community, y-axis: distance from observed user 
 
     '''
+    distance_dir = os.path.join(community, 'calculated_distances/')
     if(os.path.exists(os.path.join(distance_dir, 'median_external_community_distances'))): return 
     comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
     if(len(comm_doc_vecs) <= 1): return
@@ -149,7 +149,6 @@ def calculate_external_distances(community):
     NUM_ITER = 10
     x_axis = np.arange(1, len(comm_doc_vecs))
     external_users = []
-    external_median_jsd = []
     
     with open(jen_shan_file, 'w') as out:
         for user in comm_doc_vecs:
@@ -187,7 +186,7 @@ def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
         if(len(external_users) == (len(comm_doc_vecs) - 1) * NUM_ITER or len(external_users) == max_external_users):
             return external_users
 
-def user_internal_external_graphs(community):
+def user_distance_difference_graphs(community):
     '''
     user to internal against user to external distance
     graphs, puts plotted data into community directories
@@ -201,29 +200,28 @@ def user_internal_external_graphs(community):
     if not os.path.exists(os.path.dirname(jsd_path)):
         os.makedirs(os.path.dirname(jsd_path), 0o755)
     
-    internal_path = os.path.join(community, '/user_to_internal_users_graphss/jensen_shannon/')
-    external_path = os.path.join(community, '/calculate_external_distancess/jensen_shannon/')
+    int_dists = os.path.join(community, '/calculated_distances/jensen_shannon')
+    ext_dists = os.path.join(community, '/calculated_distances/jensen_shannon_ext')
+    int_df = pd.read_csv(int_dists, sep='\t', header=None, names=['user_a', 'user_b', 'distance'])
+    ext_df = pd.read_csv(ext_dists, sep='\t', header=None, names=['user_a', 'user_b', 'distance'])
     for user in comm_doc_vecs:
         if not os.path.exists(os.path.join(jsd_path, user + '.png')):
-            int_df = pd.read_csv(os.path.join(internal_path, user), sep='\t', header=None, names=['user_1', 'user_2', 'distance'])
-            y_axis = int_df['distance'].tolist()
+            df = int_df[(int_df.user_a == int(user)) | (int_df.user_b == int(user))]
+            y_axis = df['distance'].tolist()
             plt.plot(np.arange(0, len(y_axis)), y_axis, 'b')
-
-            ext_df = pd.read_csv(os.path.join(external_path, user), sep='\t', header=None, names=['user_1', 'user_2', 'distance'])
-            y_axis = ext_df['distance'].tolist()
+            df = ext_df[ext_df.user_a == int(user)]
+            y_axis = df['distance'].tolist()
             plt.plot(np.arange(0, len(y_axis)), y_axis, 'g')
-
-            pd.concat([int_df, ext_df]).to_csv(jsd_path + str(user), sep='\t', header=None, index=None)
-
             plt.ylabel('Divergence')
             plt.title('Divergence from ' + user + ' to Internal & External Users')
             plt.ylim([0, np.log(2)])
             plt.xlabel('Users')
             plt.xlim([0, len(y_axis) - 1])
-            plt.xticks(np.arange(0, len(y_axis), 2))
             plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+            plt.locator_params(nbins=25)
             plt.subplots_adjust(bottom=0.2)
             plt.savefig(jsd_path + user)
+            plt.savefig(jsd_path + user + '.eps', format='eps')
             plt.close()
 
 def community_aggregated_int_ext_distance(median, working_dir):
@@ -289,10 +287,11 @@ def draw_dual_line_graph(title, x_label, y_label, y_axis_1, y_axis_2, line_1_lab
     plt.margins(0.2)
     plt.tick_params(labelsize=10)
     fig.subplots_adjust(bottom=0.2)
+    plt.savefig(output_path + '.eps', format='eps')
     plt.savefig(output_path)
     plt.close(fig)
 
-def overall_int_dist_vs_comm_size(median, working_dir):
+def overall_int_dist_wrt_comm_size(median, working_dir):
     '''
     displays the overall median internal clique and internal community divergence in relation
     to the sizes of the cliques or communities
@@ -321,11 +320,11 @@ def overall_int_dist_vs_comm_size(median, working_dir):
     clq_y_axis = []
     comm_x_axis = []
     comm_y_axis = []
-    print('Drawing overall median clique & community divergence by size graph')
+    print('Drawing overall ' + uncap_metric + ' clique & community divergence by size graph')
 
-    plt.ylabel('Median Jensen Shannon Divergence\n')
+    plt.ylabel(metric + ' Jensen Shannon Divergence\n')
     plt.xlabel('Size of Community/Clique')
-    plt.title('Median Community/Clique Similarity Distribution')
+    plt.title(metric + ' Community/Clique Similarity Distribution')
 
     for clq_size in clq_dists:
         clq_x_axis.append(clq_size)
@@ -335,7 +334,7 @@ def overall_int_dist_vs_comm_size(median, working_dir):
         comm_x_axis.append(comm_size)
         comm_y_axis.append(np.mean(comm_dists[comm_size]))
 
-    output_path = os.path.join(working_dir, 'median_overall_internal_distance_by_community_size')
+    output_path = os.path.join(working_dir, uncap_metric + '_overall_internal_distance_by_community_size')
     plt.scatter(clq_x_axis, clq_y_axis, marker='x', color='g')
     plt.scatter(comm_x_axis, comm_y_axis, marker='.', color='b')
     plt.ylim([0, np.log(2) + .001])
@@ -438,17 +437,17 @@ def dir_to_iter(working_dir):
                 yield(os.path.join(path, community))
         break
 
-def calc_internal_dists_helper(status_file):
-    print('Calculating internal distances')
-    for _ in tqdm.tqdm(pool.imap_unordered(calculate_internal_distances, dir_to_iter(args.working_dir)), total=total_work): pass
-    with open(status_file, 'w') as out:
-        out.write('')
-
-def calc_external_dists_helper(status_file):
-    print('Calculating external distances')
-    for _ in tqdm.tqdm(pool.imap_unordered(calculate_external_distances, dir_to_iter(args.working_dir)), total=total_work): pass
-    with open(status_file, 'w') as out:
-        out.write('')
+def calc_individual_dists_helper(status_file, internal, pool, total_work, working_dir):
+    if internal:
+        print('Calculating internal distances')
+        for _ in tqdm.tqdm(pool.imap_unordered(calculate_internal_distances, dir_to_iter(working_dir)), total=total_work): pass
+        with open(status_file, 'w') as out:
+            out.write('')
+    else:
+        print('Calculating external distances')
+        for _ in tqdm.tqdm(pool.imap_unordered(calculate_external_distances, dir_to_iter(working_dir)), total=total_work): pass
+        with open(status_file, 'w') as out:
+            out.write('')
 
 def build_aggregated_dataframe(median, internal, community):
     comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
@@ -473,13 +472,13 @@ def main():
     parser.add_argument('-e', action='store_true', help='Calculate individual external distances')
     parser.add_argument('-I', action='store_true', help='Draw internal distance graphs')
     parser.add_argument('-E', action='store_true', help='Draw external distance graphs')
-    parser.add_argument('-d', action='store_true', help='Draw internal vs external distance graphs')
-    parser.add_argument('-t', action='store_true', help='Draw topic distribution graphs')
     parser.add_argument('-n', action='store_true', help='Calculate aggregated internal distances for communities')
     parser.add_argument('-x', action='store_true', help='Calculate aggregated external distances for communities')
+    parser.add_argument('-m', '--median', action='store_true', dest='median', help='Use this option to set aggregation metric to median, default is average')
+    parser.add_argument('-d', action='store_true', help='Draw internal vs external distance graphs')
+    parser.add_argument('-t', action='store_true', help='Draw topic distribution graphs')
     parser.add_argument('-a', action='store_true', help='Draw aggregated distance graphs for communities')
     parser.add_argument('-s', action='store_true', help='Draw distance vs size distribution graphs for communities')
-    parser.add_argument('-m', '--median', action='store_true', dest='median', help='Use this option to change the aggregation metric, default is average')
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
@@ -496,25 +495,25 @@ def main():
         func = partial(restore_original_dataset, args.working_dir)
         pool.map(restore_original_dataset, dir_to_iter(args.working_dir))
     if args.i:
-        print('Calculating individual internal distances')
-        if not os.path.exists(int_status): calc_internal_dists_helper(int_status)
+        if not os.path.exists(int_status): calc_individual_dists_helper(int_status, True, pool, total_work, args.working_dir)
     if args.I:
         if os.path.exists(int_status):
             print('Drawing internal distance graphs')
             func = partial(individual_user_distance_graphs, True)
             for _ in tqdm.tqdm(pool.imap_unordered(func, dir_to_iter(args.working_dir)), total=total_work): pass
         else:
-            print('Error, cannot draw internal distance graphs; Individual internal distances must be calculated first')
+            print('Error, cannot draw internal distance graphs; Calculating internal distances first')
+            calc_individual_dists_helper(int_status, True)
     if args.e:
-        print('Calculating individual external distances')
-        if not os.path.exists(ext_status): calc_external_dists_helper(ext_status)
+        if not os.path.exists(ext_status): calc_individual_dists_helper(ext_status, False, pool, total_work, args.working_dir)
     if args.E:
         if os.path.exists(ext_status):
             print('Drawing external distance graphs')
             func = partial(individual_user_distance_graphs, False)
             for _ in tqdm.tqdm(pool.imap_unordered(func, dir_to_iter(args.working_dir)), total=total_work): pass
         else:
-            print('Error, cannot draw external distance graphs; Individual internal distances must be calculated first')
+            print('Error, cannot draw external distance graphs; Calculating external distances first')
+            calc_individual_dists_helper(ext_status, False)
     if args.n:
         if os.path.exists(int_status):
             print('Calculating internal aggregated community distances')
@@ -526,7 +525,8 @@ def main():
             metric = 'median' if args.median else 'mean'
             pd.DataFrame(result).to_csv(os.path.join(args.working_dir, metric + '_aggregated_community_distances'), sep='\t', header=None, index=None)
         else:
-            print('Error, cannot calculate aggregated community distances; Individual internal distances must be calculated first')
+            print('Error, cannot calculate aggregated community distances; Calculating internal distances first')
+            calc_individual_dists_helper(int_status, True)
     if args.x:
         if os.path.exists(ext_status): 
             print('Calculating external aggregated community distances')
@@ -538,18 +538,23 @@ def main():
             metric = 'median' if args.median else 'mean'
             pd.DataFrame(result).to_csv(os.path.join(args.working_dir, metric + '_ext_aggregated_community_distances'), sep='\t', header=None, index=None)
         else:
-            print('Error, cannot calculate aggregated community distances; Individual external distances must be calculated first')
+            print('Error, cannot calculate aggregated community distances; Calculating external distances first')
+            calc_individual_dists_helper(ext_status, False)
     if args.d:
         if os.path.exists(int_status) and os.path.exists(ext_status):
             print('Drawing user internal vs external distance graphs')
-            for _ in tqdm.tqdm(pool.imap_unordered(user_internal_external_graphs, dir_to_iter(args.working_dir)), total=total_work): pass
+            for _ in tqdm.tqdm(pool.imap_unordered(user_distance_difference_graphs, dir_to_iter(args.working_dir)), total=total_work): pass
         else:
             if not os.path.exists(int_status):
-                print('Error, cannot draw internal vs external distance graphs; Individual internal distances must be calculated first') 
+                print('Error, cannot draw internal vs external distance graphs; Calculating internal distances first')
+                calc_individual_dists_helper(int_status, True)
             if not os.path.exists(ext_status):
-                print('Error, cannot draw internal vs external distance graphs; Individual external distances must be calculated first') 
+                print('Error, cannot draw internal vs external distance graphs; Calculating external distances first')
+                calc_individual_dists_helper(ext_status, False)
             else:
-                print('Error, cannot draw internal vs external distance graphs; Individual internal and external distances must be calculated first') 
+                print('Error, cannot draw internal vs external distance graphs; Calculating internal and external distances first')
+                calc_individual_dists_helper(int_status, True)
+                calc_individual_dists_helper(ext_status, False)
     if args.t:
         print('Drawing topic distribution graphs for all users')
         for _ in tqdm.tqdm(pool.imap_unordered(user_topic_distribution_graph, dir_to_iter(args.working_dir)), total=total_work): pass
@@ -561,22 +566,22 @@ def main():
         uncap_metric = metric[0].lower() + metric[1:]
         int_df = pd.read_csv(os.path.join(args.working_dir, uncap_metric + '_aggregated_community_distances'), sep='\t', header=None, names=['cid', 'size', 'dist'], index_col=0)
         ext_df = pd.read_csv(os.path.join(args.working_dir, uncap_metric + '_ext_aggregated_community_distances'), sep='\t', header=None, names=['cid', 'size', 'dist'], index_col=0)
-        int_comm_y_axis = int_df['dist'][int_df['size'] <= 150].tolist()
+        int_comm_y_axis = int_df['dist'][(int_df['size'] > 3) & (int_df['size'] <= 150)].tolist()
         int_comm_y_axis1 = int_df['dist'][int_df['size'] > 150].tolist()
-        ext_comm_y_axis = ext_df['dist'][ext_df['size'] <= 150].tolist()
+        ext_comm_y_axis = ext_df['dist'][(ext_df['size'] > 3) & (ext_df['size'] <= 150)].tolist()
         ext_comm_y_axis1 = ext_df['dist'][ext_df['size'] > 150].tolist()
 
         output_path = os.path.join(args.working_dir, uncap_metric + '_community_internal_external_divergence_lte150')
-        draw_dual_line_graph(metric + ' Internal & External Community Divergence', 'Community ID', 
+        draw_dual_line_graph(metric + ' Internal & External Community Divergence\n for Communities of Size > 3 & <=150 Using InfoMap', 'Communities', 
                              metric + ' Jensen Shannon Divergence', int_comm_y_axis, ext_comm_y_axis,
                              'Internal', 'External', output_path)
 
         output_path = os.path.join(args.working_dir, uncap_metric + '_community_internal_external_divergence_gt150')
-        draw_dual_line_graph(metric + ' Internal & External Community Divergence', 'Community ID', 
+        draw_dual_line_graph(metric + ' Internal & External Community Divergence\n for Communities of Size > 150 Using InfoMap', 'Communities', 
                              metric + ' Jensen Shannon Divergence', int_comm_y_axis1, ext_comm_y_axis1,
                              'Internal', 'External', output_path)
     if args.s:
-        overall_int_dist_vs_comm_size(args.working_dir)
+        overall_int_dist_wrt_comm_size(args.working_dir)
 
 if __name__ == '__main__':
     sys.exit(main())
