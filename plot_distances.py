@@ -566,20 +566,112 @@ def main():
         uncap_metric = metric[0].lower() + metric[1:]
         int_df = pd.read_csv(os.path.join(args.working_dir, uncap_metric + '_aggregated_community_distances'), sep='\t', header=None, names=['cid', 'size', 'dist'], index_col=0)
         ext_df = pd.read_csv(os.path.join(args.working_dir, uncap_metric + '_ext_aggregated_community_distances'), sep='\t', header=None, names=['cid', 'size', 'dist'], index_col=0)
-        int_comm_y_axis = int_df['dist'][(int_df['size'] > 3) & (int_df['size'] <= 150)].tolist()
-        int_comm_y_axis1 = int_df['dist'][int_df['size'] > 150].tolist()
-        ext_comm_y_axis = ext_df['dist'][(ext_df['size'] > 3) & (ext_df['size'] <= 150)].tolist()
-        ext_comm_y_axis1 = ext_df['dist'][ext_df['size'] > 150].tolist()
+        if int_df.index.str.contains('clique').any():
+            int_clq_y_axis = []
+            int_clq_y_axis1 = []
+            ext_clq_y_axis = []
+            ext_clq_y_axis1 = []
+            
 
-        output_path = os.path.join(args.working_dir, uncap_metric + '_community_internal_external_divergence_lte150')
-        draw_dual_line_graph(metric + ' Internal & External Community Divergence\n for Communities of Size > 3 & <=150 Using InfoMap', 'Communities', 
-                             metric + ' Jensen Shannon Divergence', int_comm_y_axis, ext_comm_y_axis,
-                             'Internal', 'External', output_path)
+#            int_clq_df = int_df[int_df.index.str.contains('clique')]
+#            int_clq_y_axis = int_clq_df['dist'][(int_clq_df['size'] > 3) & (int_clq_df['size'] <= 150)].tolist()
+#            int_clq_y_axis1 = int_clq_df['dist'][int_clq_df['size'] > 150].tolist()
+#            if not int_clq_y_axis: print('int_clq_y_axis > 3 <=150')
+#            if not int_clq_y_axis1: print('int_clq_y_axis > 150')
+#        
+#            ext_clq_df = ext_df[ext_df.index.str.contains('clique')]
+#            ext_clq_y_axis = ext_clq_df['dist'][(ext_clq_df['size'] > 3) & (ext_clq_df['size'] <= 150)].tolist()
+#            ext_clq_y_axis1 = ext_clq_df['dist'][ext_clq_df['size'] > 150].tolist()
+#            if not ext_clq_y_axis: print('ext_clq_y_axis > 3 <=150')
+#            if not ext_clq_y_axis1: print('ext_clq_y_axis > 150')
+            
+            int_comm_df = int_df[int_df.index.str.contains('community')]
+            int_comm_y_axis = int_comm_df['dist'][(int_comm_df['size'] > 3) & (int_comm_df['size'] <= 150)].tolist()
+            int_comm_y_axis1 = int_comm_df['dist'][int_comm_df['size'] > 150].tolist()
+            if not int_comm_y_axis: print('int_comm_y_axis > 3 <=150')
+            if not int_comm_y_axis1: print('int_comm_y_axis > 150')
+        
+            ext_comm_df = ext_df[ext_df.index.str.contains('community')]
+            ext_comm_y_axis = ext_comm_df['dist'][(ext_comm_df['size'] > 3) & (ext_comm_df['size'] <= 150)].tolist()
+            ext_comm_y_axis1 = ext_comm_df['dist'][ext_comm_df['size'] > 150].tolist()
+            if not ext_comm_y_axis: print('ext_comm_y_axis > 3 <=150')
+            if not ext_comm_y_axis1: print('ext_comm_y_axis > 150')
 
-        output_path = os.path.join(args.working_dir, uncap_metric + '_community_internal_external_divergence_gt150')
-        draw_dual_line_graph(metric + ' Internal & External Community Divergence\n for Communities of Size > 150 Using InfoMap', 'Communities', 
-                             metric + ' Jensen Shannon Divergence', int_comm_y_axis1, ext_comm_y_axis1,
-                             'Internal', 'External', output_path)
+            int_comm_y_axis = int_df['dist'][int_df.index.str.contains('community')].tolist()
+            int_clq_y_axis = int_df['dist'][int_df.index.str.contains('clique')].tolist()
+            ext_comm_y_axis = ext_df['dist'][ext_df.index.str.contains('community')].tolist()
+            ext_clq_y_axis = ext_df['dist'][ext_df.index.str.contains('clique')].tolist()
+
+            if int_clq_y_axis and ext_clq_y_axis:
+                output_path = os.path.join(args.working_dir, uncap_metric + '_clique_internal_external_divergence_CAA')
+                draw_dual_line_graph(metric + ' Internal & External Divergence\n for Cliques Using CAA', 'Cliques', 
+                                     ' Jensen Shannon Divergence', int_clq_y_axis, ext_clq_y_axis,
+                                     'Internal', 'External', output_path)
+            
+#            if int_clq_y_axis1 and ext_clq_y_axis1:
+#                output_path = os.path.join(args.working_dir, uncap_metric + '_clique_internal_external_divergence_gt150_CAA')
+#                draw_dual_line_graph(metric + ' Internal & External Divergence\n for Cliques of Size > 150 Using CAA', 'Cliques', 
+#                                     metric + ' Jensen Shannon Divergence', int_clq_y_axis1, ext_clq_y_axis1,
+#                                     'Internal', 'External', output_path)
+#
+            if int_comm_y_axis and ext_comm_y_axis:
+                output_path = os.path.join(args.working_dir, uncap_metric + '_community_internal_external_divergence_CAA')
+                draw_dual_line_graph(metric + ' Internal & External Divergence for\n Communities Using CAA', 'Communities', 
+                                     ' Jensen Shannon Divergence', int_comm_y_axis, ext_comm_y_axis,
+                                     'Internal', 'External', output_path)
+#
+#            if int_comm_y_axis1 and ext_comm_y_axis1:
+#                output_path = os.path.join(args.working_dir, uncap_metric + '_community_internal_external_divergence_gt150_CAA')
+#                draw_dual_line_graph(metric + ' Internal & External Divergence for\n Communities of Size > 150 Using CAA', 'Communities', 
+#                                     metric + ' Jensen Shannon Divergence', int_comm_y_axis1, ext_comm_y_axis1,
+#                                     'Internal', 'External', output_path)
+
+            if int_clq_y_axis and int_comm_y_axis:
+                output_path = os.path.join(args.working_dir, uncap_metric + '_clique_community_internal_divergence_CAA')
+                draw_dual_line_graph(metric + ' Internal Divergence for\n Cliques & Communties Using CAA', 'Cliques/Communities', 
+                                     ' Jensen Shannon Divergence', int_clq_y_axis, int_comm_y_axis,
+                                     'Clique', 'Community', output_path)
+
+#            if int_clq_y_axis1 and int_comm_y_axis1:
+#                output_path = os.path.join(args.working_dir, uncap_metric + '_clique_community_internal_divergence_gt150_CAA')
+#                draw_dual_line_graph(metric + ' Internal Divergence for Cliques & Communities\n of Size > 150 Using CAA', 'Cliques/Communities', 
+#                                     metric + ' Jensen Shannon Divergence', int_clq_y_axis1, int_comm_y_axis1,
+#                                     'Clique', 'Community', output_path)
+#
+#            if ext_clq_y_axis and ext_comm_y_axis:
+#                output_path = os.path.join(args.working_dir, uncap_metric + '_clique_community_external_divergence_gt3lte150_CAA')
+#                draw_dual_line_graph(metric + ' External Divergence for Cliques & Communties\nof Size > 3 & <= 150 Using CAA', 'Cliques/Communities', 
+#                                     metric + ' Jensen Shannon Divergence', ext_clq_y_axis, ext_comm_y_axis,
+#                                     'Clique', 'Community', output_path)
+#
+#            if ext_clq_y_axis1 and ext_comm_y_axis1:
+#                output_path = os.path.join(args.working_dir, uncap_metric + '_clique_community_external_divergence')
+#                draw_dual_line_graph(metric + ' External Divergence for Cliques & Communities\n of Size > 150 Using CAA', 'Cliques/Communities', 
+#                                     metric + ' Jensen Shannon Divergence', ext_clq_y_axis1, ext_comm_y_axis1,
+#                                     'Clique', 'Community', output_path)
+
+        else:
+            int_comm_y_axis = int_df['dist'].tolist()
+            ext_comm_y_axis = ext_df['dist'].tolist()
+            
+            output_path = os.path.join(args.working_dir, uncap_metric + '_community_internal_external_divergence_InfoMap')
+            draw_dual_line_graph(metric + ' Internal & External Community Divergence\n for Communities Using InfoMap', 'Communities', 
+                                 ' Jensen Shannon Divergence', int_comm_y_axis, ext_comm_y_axis,
+                                 'Internal', 'External', output_path)
+#            int_comm_y_axis = int_df['dist'][(int_df['size'] > 3) & (int_df['size'] <= 150)].tolist()
+#            int_comm_y_axis1 = int_df['dist'][int_df['size'] > 150].tolist()
+#            ext_comm_y_axis = ext_df['dist'][(ext_df['size'] > 3) & (ext_df['size'] <= 150)].tolist()
+#            ext_comm_y_axis1 = ext_df['dist'][ext_df['size'] > 150].tolist()
+#
+#            output_path = os.path.join(args.working_dir, uncap_metric + '_community_internal_external_divergence_lte150_InfoMap')
+#            draw_dual_line_graph(metric + ' Internal & External Community Divergence\n for Communities of Size > 3 & <=150 Using InfoMap', 'Communities', 
+#                                 ' Jensen Shannon Divergence', int_comm_y_axis, ext_comm_y_axis,
+#                                 'Internal', 'External', output_path)
+#
+#            output_path = os.path.join(args.working_dir, uncap_metric + '_community_internal_external_divergence_gt150_InfoMap')
+#            draw_dual_line_graph(metric + ' Internal & External Community Divergence\n for Communities of Size > 150 Using InfoMap', 'Communities', 
+#                                 ' Jensen Shannon Divergence', int_comm_y_axis1, ext_comm_y_axis1,
+#                                 'Internal', 'External', output_path)
     if args.s:
         overall_int_dist_wrt_comm_size(args.working_dir)
 
