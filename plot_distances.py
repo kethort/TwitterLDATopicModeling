@@ -27,7 +27,7 @@ def calculate_internal_distances(community):
     '''
     distance_dir = os.path.join(community, 'calculated_distances/')
     if(os.path.exists(os.path.join(distance_dir, 'median_community_distances'))): return 
-    comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
+    comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
     if(len(comm_doc_vecs) <= 1): return
     if not os.path.exists(os.path.dirname(distance_dir)):
         os.makedirs(os.path.dirname(distance_dir), 0o755)
@@ -131,7 +131,7 @@ def calculate_external_distances(community):
     '''
     distance_dir = os.path.join(community, 'calculated_distances/')
     if(os.path.exists(os.path.join(distance_dir, 'median_external_community_distances'))): return 
-    comm_doc_vecs = open_community_document_vectors_file(community + '/community_doc_vecs.json')
+    comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
     if(len(comm_doc_vecs) <= 1): return
     distance_dir = os.path.join(community, 'calculated_distances/')
     jen_shan_file = os.path.join(distance_dir, 'jensen_shannon_ext')
@@ -192,16 +192,16 @@ def user_distance_difference_graphs(community):
     graphs, puts plotted data into community directories
 
     '''
-    comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, '/community_doc_vecs.json'))
+    comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
     if(len(comm_doc_vecs) <= 1): return
 
-    jsd_path = os.path.join(community, '/distance_difference_graphs/jensen_shannon/')
+    jsd_path = os.path.join(community, 'distance_difference_graphs/jensen_shannon/')
 
     if not os.path.exists(os.path.dirname(jsd_path)):
         os.makedirs(os.path.dirname(jsd_path), 0o755)
     
-    int_dists = os.path.join(community, '/calculated_distances/jensen_shannon')
-    ext_dists = os.path.join(community, '/calculated_distances/jensen_shannon_ext')
+    int_dists = os.path.join(community, 'calculated_distances/jensen_shannon')
+    ext_dists = os.path.join(community, 'calculated_distances/jensen_shannon_ext')
     int_df = pd.read_csv(int_dists, sep='\t', header=None, names=['user_a', 'user_b', 'distance'])
     ext_df = pd.read_csv(ext_dists, sep='\t', header=None, names=['user_a', 'user_b', 'distance'])
     for user in comm_doc_vecs:
@@ -350,31 +350,28 @@ def user_topic_distribution_graph(community):
     this function
 
     '''
-    print('Getting topic distribution for : ' + community)
-    output_path = os.path.join(community, '/topic_distribution_graphs/')
-            
+    output_path = os.path.join(community, 'topic_distribution_graphs/')
     if not os.path.exists(os.path.dirname(output_path)):
     	os.makedirs(os.path.dirname(output_path), 0o755)
 
-    comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, '/community_doc_vecs.json'))
+    comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
     for user in comm_doc_vecs:
-        if not os.path.exists(os.path.join(output_path, user) + '.png'):
-            y_axis = []
-            x_axis = []
-            for topic_id, dist in enumerate(comm_doc_vecs[user]):
-                x_axis.append(topic_id + 1)
-                y_axis.append(dist)
-            width = 1 
-            plt.bar(x_axis, y_axis, width, align='center', color='r')
-            plt.xlabel('Topics')
-            plt.ylabel('Probability')
-            plt.title('Topic Distribution for User: ' + user)
-            plt.xticks(np.arange(2, len(x_axis), 2), rotation='vertical', fontsize=7)
-            plt.subplots_adjust(bottom=0.2)
-            plt.ylim([0, np.max(y_axis) + .01])
-            plt.xlim([0, len(x_axis) + 1])
-            plt.savefig(output_path + user)
-            plt.close()
+        y_axis = []
+        x_axis = []
+        for topic_id, dist in enumerate(comm_doc_vecs[user]):
+            x_axis.append(topic_id + 1)
+            y_axis.append(dist)
+        width = 1 
+        plt.bar(x_axis, y_axis, width, align='center', color='r')
+        plt.xlabel('Topics')
+        plt.ylabel('Probability')
+        plt.title('Topic Distribution for User: ' + user)
+        plt.xticks(np.arange(2, len(x_axis), 2), rotation='vertical', fontsize=7)
+        plt.subplots_adjust(bottom=0.2)
+        plt.ylim([0, np.max(y_axis) + .01])
+        plt.xlim([0, len(x_axis) + 1])
+        plt.savefig(output_path + user)
+        plt.close()
 
 def restore_original_dataset(working_dir, community):
     bak_file = os.path.join(community, 'community_doc_vecs.json.bak')
