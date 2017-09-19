@@ -18,10 +18,14 @@ from tqdm import tqdm
 
 ignore_words = frozenset(stopwords.words('english'))
 
-def extract_data(topic_model, corpus, dictionary, doc_topic_dists=None):
-    '''
+##############################################################################################################################
+'''
     extract_data method is copied directly from gensim.py in the pyLDAvis library
-    '''
+    https://github.com/bmabey/pyLDAvis/blob/master/pyLDAvis/gensim.py
+'''
+##############################################################################################################################
+def extract_data(topic_model, corpus, dictionary, doc_topic_dists=None):
+    
     if not matutils.ismatrix(corpus):
           corpus_csc = matutils.corpus2csc(corpus, num_terms=len(dictionary))
     else:
@@ -70,7 +74,9 @@ def extract_data(topic_model, corpus, dictionary, doc_topic_dists=None):
     coherence_model = models.CoherenceModel(model=topic_model, corpus=corpus, dictionary=dictionary, coherence='u_mass')
 
     return {'topic_term_dists': topic_term_dists, 'doc_topic_dists': doc_topic_dists, 
-            'doc_lengths': doc_lengths, 'u_mass_coherence': coherence_model.get_coherence(), 'num_topics': num_topics}
+            'doc_lengths': doc_lengths, 'num_topics': num_topics}
+
+##############################################################################################################################
 
 def cao_juan_2009(topic_term_dists, num_topics):
     cos_pdists = squareform(pdist(topic_term_dists, metric='cosine')) 
