@@ -1,13 +1,10 @@
 # twitter_LDA_topic_modeling
 
-Using supervised learning techniques, it's possible to classify a collection of documents into latent topics, providing a mechanism for 
-determining similarities between other documents. Twitter users associate and socialize with other users based on similar 
-interests. The Tweets of these users can be classified using a trained LDA model to automate the discovery of their similarities. 
+Twitter users often associate and socialize with other users based on similar interests. The Tweets of these users can be classified using a trained LDA model to automate the discovery of their similarities. 
 
 ### Prerequisites
 
 Python 2.7 is required for use because Pattern package not compatible with Python > 2.7.
-
 
 
 ### Installing
