@@ -73,7 +73,7 @@ def individual_user_distance_graphs(internal, community):
     x_axis = np.arange(1, len(comm_doc_vecs))
     df = pd.read_csv(jsd_dists, sep='\t', header=None, names=['user_1', 'user_2', 'distance'])
     for user in comm_doc_vecs:
-        if not os.path.exists(os.path.join(out_path + '/', user + '.png')):
+        if not os.path.exists(os.path.join(out_path, user + '.png')):
             new_df = df[(df.user_1 == int(user)) | (df.user_2 == int(user))]
             new_df.to_csv(out_path + str(user), sep='\t', header=None, index=None)
             y_axis = new_df['distance'].tolist()
