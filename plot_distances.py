@@ -60,11 +60,11 @@ def individual_user_distance_graphs(internal, community):
     distance_dir = os.path.join(community, 'calculated_distances/')
     if internal:
         jsd_dists = os.path.join(distance_dir, 'jensen_shannon')
-        out_path = os.path.join(os.path.join(community, 'internal_user_graphs'), 'jensen_shannon')
+        out_path = os.path.join(os.path.join(community, 'internal_user_graphs/jensen_shannon/'))
         out_file = os.path.join(distance_dir, 'community_distances')
     else:
         jsd_dists = os.path.join(distance_dir, 'jensen_shannon_ext')
-        out_path = os.path.join(os.path.join(community, 'external_user_graphs'), 'jensen_shannon')
+        out_path = os.path.join(os.path.join(community, 'external_user_graphs/jensen_shannon/'))
         out_file = os.path.join(distance_dir, 'ext_community_distances')
     comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
     if(len(comm_doc_vecs) <= 1): return
@@ -73,11 +73,11 @@ def individual_user_distance_graphs(internal, community):
     x_axis = np.arange(1, len(comm_doc_vecs))
     df = pd.read_csv(jsd_dists, sep='\t', header=None, names=['user_1', 'user_2', 'distance'])
     for user in comm_doc_vecs:
-        if not os.path.exists(os.path.join(out_path, user + '.png')):
+        if not os.path.exists(os.path.join(out_path + '/', user + '.png')):
             new_df = df[(df.user_1 == int(user)) | (df.user_2 == int(user))]
-            new_df.to_csv(jsd_path + str(user), sep='\t', header=None, index=None)
+            new_df.to_csv(out_path + str(user), sep='\t', header=None, index=None)
             y_axis = new_df['distance'].tolist()
-            draw_scatter_graph(user, 'Community Members', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + 0.1), os.path.join(jsd_path, user))
+            draw_scatter_graph(user, 'Community Members', 'Jensen Shannon Divergence', x_axis, y_axis, 0, len(x_axis) + 1, 0, (np.log(2) + 0.1), os.path.join(out_path, user))
 
 def draw_scatter_graph(title, x_label, y_label, x_axis, y_axis, min_x, max_x, min_y, max_y, output_path):
     fig = plt.figure()
@@ -141,10 +141,10 @@ def calculate_external_distances(community):
     with open(os.path.join(working_dir, 'document_vectors.json'), 'r') as all_community_doc_vecs_file:
         all_community_doc_vecs = json.load(all_community_doc_vecs_file)
 
-    jsd_path = community + '/calculate_external_distancess/jensen_shannon/'
+    out_path = community + '/calculate_external_distancess/jensen_shannon/'
 
-    if not os.path.exists(os.path.dirname(jsd_path)):
-        os.makedirs(os.path.dirname(jsd_path), 0o755)
+    if not os.path.exists(os.path.dirname(out_path)):
+        os.makedirs(os.path.dirname(out_path), 0o755)
 
     NUM_ITER = 10
     x_axis = np.arange(1, len(comm_doc_vecs))
@@ -195,17 +195,17 @@ def user_distance_difference_graphs(community):
     comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
     if(len(comm_doc_vecs) <= 1): return
 
-    jsd_path = os.path.join(community, 'distance_difference_graphs/jensen_shannon/')
+    out_path = os.path.join(community, 'distance_difference_graphs/jensen_shannon/')
 
-    if not os.path.exists(os.path.dirname(jsd_path)):
-        os.makedirs(os.path.dirname(jsd_path), 0o755)
+    if not os.path.exists(os.path.dirname(out_path)):
+        os.makedirs(os.path.dirname(out_path), 0o755)
     
     int_dists = os.path.join(community, 'calculated_distances/jensen_shannon')
     ext_dists = os.path.join(community, 'calculated_distances/jensen_shannon_ext')
     int_df = pd.read_csv(int_dists, sep='\t', header=None, names=['user_a', 'user_b', 'distance'])
     ext_df = pd.read_csv(ext_dists, sep='\t', header=None, names=['user_a', 'user_b', 'distance'])
     for user in comm_doc_vecs:
-        if not os.path.exists(os.path.join(jsd_path, user + '.png')):
+        if not os.path.exists(os.path.join(out_path, user + '.png')):
             df = int_df[(int_df.user_a == int(user)) | (int_df.user_b == int(user))]
             y_axis = df['distance'].tolist()
             plt.plot(np.arange(0, len(y_axis)), y_axis, 'b')
@@ -220,8 +220,8 @@ def user_distance_difference_graphs(community):
             plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
             plt.locator_params(nbins=25)
             plt.subplots_adjust(bottom=0.2)
-            plt.savefig(jsd_path + user)
-            plt.savefig(jsd_path + user + '.eps', format='eps')
+            plt.savefig(out_path + user)
+            plt.savefig(out_path + user + '.eps', format='eps')
             plt.close()
 
 def community_aggregated_int_ext_distance(median, working_dir):
@@ -674,4 +674,3 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
-
