@@ -22,16 +22,15 @@ source venv/bin/activate
 pip install -r requirements.txt
 sudo activate-global-python-argcomplete
 
+# install pyLDAvis from github due to pandas deprecations
+pip install --upgrade -git:git://github.com/bmabey/pyLDAvis.git
+
 # check for BLAS installation
 python -c 'import numpy; numpy.show_config()'
 
-# patch Gensim modules and download stopword lists
+# custom stopword list
 printf 'd\nstopwords\nq' | python -c 'import nltk; nltk.download()'
 mv patches/english ~/nltk_data/corpora/stopwords
 
-# wikicorpus patch 
-# increases the min size of acceptable articles to 200 words
-
-cp patches/wikicorpus.py venv/lib/python2.7/site-packages/gensim/corpora/
+# custom progress bar patch
 cp patches/prog_class.py venv/lib/python2.7/site-packages/pyprind/prog_class.py
-cp patches/english ~/nltk_data/corpora/stopwords/
