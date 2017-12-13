@@ -38,8 +38,7 @@ def preprocess_tweet(document, lemma):
     tknzr = TweetTokenizer()
     text = tknzr.tokenize(text)
     # lowercase, remove words less than len 2 & remove numbers in tokenized list
-    text = [word.lower() for word in text if not word.isdigit() and not word in ignore_words]
-    return utils.simple_preprocess(text, deacc=True, min_len=3)
+    return [word.lower() for word in text if not word.isdigit() and not word in ignore_words]
 
 def get_document_vectors(user_id, **kwargs):
     print('Getting document vectors for: ' + user_id)
