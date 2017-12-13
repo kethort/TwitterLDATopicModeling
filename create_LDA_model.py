@@ -22,6 +22,13 @@ ignore_words = set(stopwords.words('english'))
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
+def wiki_tokenizer(content, token_min_len=3, token_max_len=15, lower=True):
+    return [
+        utils.to_unicode(token) for token in utils.simple_preprocess(content, deacc=True, min_len=3) 
+        if token_min_len <= len(token) <= token_max_len and not token.startswith('_') and not token.isdigit()
+        and not token in ignore_words
+    ]
+
 def preprocess_text(lemma, document):
     with open(document, 'r') as infile:
         # transform document into one string
@@ -43,10 +50,8 @@ def preprocess_text(lemma, document):
     text = tknzr.tokenize(text)
 
     # lowercase, remove words less than len 2 & remove numbers in tokenized list
-    text = [word.lower() for word in text if len(word) > 2 and not word.isdigit()]
-
-    # remove stopwords
-    return [word for word in text if not word in ignore_words]
+    text = [word.lower() for word in text if len(word) > 2 and not word.isdigit() and not word in ignore_words]
+    return utils.simple_preprocess(text, deacc=True, min_len=3)
 
 def list_to_gen(directory):
     for filename in os.listdir(directory):
@@ -120,14 +125,17 @@ def main():
     if args.mode == 'text':
         doc_corpus = DocCorpus(args.docs_loc, args.lemma)
 
-        # ignore words that appear in more than 50% of documents
         doc_corpus.dictionary.filter_extremes(no_below=1, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
         MmCorpus.serialize(args.corp_loc + '.mm', doc_corpus)
         doc_corpus.dictionary.save(args.corp_loc + '.dict')
 
     if args.mode == 'wiki':
-        wiki_corpus = WikiCorpus(args.wiki_loc, lemmatize=True)
+        if args.lemma:
+            wiki_corpus = WikiCorpus(args.wiki_loc, lemmatize=True, tokenizer_func=wiki_tokenizer, article_min_tokens=100, token_min_len=3, token_max_len=15)
+        else:
+            wiki_corpus = WikiCorpus(args.wiki_loc, lemmatize=False, tokenizer_func=wiki_tokenizer, article_min_tokens=100, token_min_len=3, token_max_len=15)
+
         wiki_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
         MmCorpus.serialize(args.corp_loc + '.mm', wiki_corpus)
