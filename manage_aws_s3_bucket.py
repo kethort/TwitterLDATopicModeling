@@ -11,6 +11,8 @@ def get_access_creds(credentials_csv):
     df = pd.read_csv(credentials_csv, sep=',')
     return str(df['Access key ID']), str(df['Secret access key'])
 
+''' this will help you if you want to pay Amazon for a high powered computer that you 
+    can't afford unless you save up...I guess it makes sense...kinda '''
 def main():
     parser = argparse.ArgumentParser(description='Upload or download files/directories to or from an S3 bucket')
     subparsers = parser.add_subparsers(dest='mode')
