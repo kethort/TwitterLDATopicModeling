@@ -59,7 +59,8 @@ def write_json(tweets_dir, active_users, inactive_users):
 
 ''' a topology of twitter users is found based on follower relationships. networkx was used to
     find maximal cliques and discover communities derived from a clique based on max number of 
-    "friends" to associate with '''
+    "friends" to associate with. an example of what's in a topology file is in the img directory
+    of this github project '''
 def main(topology):
     inactive_users = read_json('dnld_tweets/inactive_users.json')
     active_users = read_json('dnld_tweets/active_users.json')
