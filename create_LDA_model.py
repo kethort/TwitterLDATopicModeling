@@ -94,6 +94,8 @@ def build_pyLDAvis_output(corp_loc, dict_loc, lda_loc):
     vis_data = gensim_vis.prepare(lda, corpus, dictionary, sort_topics=False)
     pyLDAvis.save_html(vis_data, lda_loc.split('.')[0] + '.html')
 
+''' this is basically a wrapper for the Gensim library that creates LDA model either from a folder of texts 
+    or a wikipedia dump. nothing special here except preprocessing of text and ease of use in command line '''
 def main():
     parser = argparse.ArgumentParser(description='Create a corpus from a collection of tweets and/or build an LDA model')
     subparsers = parser.add_subparsers(dest='mode')
