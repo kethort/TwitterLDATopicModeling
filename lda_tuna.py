@@ -119,6 +119,8 @@ def build_coherence_models(topic_model, **kwargs):
     c_npmi = models.CoherenceModel(model=topic_model, texts=kwargs['texts'], corpus=kwargs['corpus'], dictionary=kwargs['dictionary'], coherence='c_npmi')
     return {'num_topics': topic_model.num_topics, 'u_mass': u_mass.get_coherence(), 'c_v': c_v.get_coherence(), 'c_uci': c_uci.get_coherence(), 'c_npmi': c_npmi.get_coherence()}
 
+''' a poor attempt at implementing useless statistical measures, the result seems meaningless and is
+    in the img folder of the github project. '''
 def main(text_dir):
     topics = range(10, 101, 10) + range(120, 201, 20) + range(250, 451, 50)
     #topics = range(10, 21, 10)
