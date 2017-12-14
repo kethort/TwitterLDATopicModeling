@@ -48,6 +48,8 @@ def overall_average_divergence_per_model(user_topics_dir, lda_loc):
         with open('wiki_num_topics_divergence', 'a') as outfile:
             outfile.write('{}\t{}\t{}\t{}\t{}\n'.format(lda.num_topics, np.average(clique_int_dists), np.average(clique_ext_dists), np.average(comm_int_dists), np.average(comm_ext_dists)))
 
+''' assumes you have created various models with differing topic lengths and have gone through the process
+    of calculating the JSD for all the downloaded tweets for each topic model (script is specific to research) '''
 def main():
     lda_dir = os.path.join('data', 'wiki')
     param_dirs = [('user_topics_wiki_25/', os.path.join(lda_dir, 'lda_25_lem_5_pass.model')), 
