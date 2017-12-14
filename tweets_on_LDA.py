@@ -76,6 +76,9 @@ def community_document_vectors(doc_vecs, community):
             pass
     return comm_doc_vecs
 
+''' from the model that was created, you can calculate the topic probability distribution of unseen documents.
+    this is just an ease-of-use wrapper over the already easy-to-use Gensim library for preprocessing unseen
+    documents and calculating topic probability distributions over a given topology '''
 def main():
     parser = argparse.ArgumentParser(description='Create a corpus from a collection of tweets and/or build an LDA model')
     parser.add_argument('-t', '--topology_file', required=True, action='store', dest='top_file', help='Location of topology file')
