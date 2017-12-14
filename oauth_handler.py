@@ -3,6 +3,7 @@ import sys
 import tweepy
 import pandas as pd
 
+''' the team tried to 'skirt' the limitations of tweepy but attempts were futile '''
 def get_access_creds():
     '''
         Twitter API authentication credentials are stored in a file as:
