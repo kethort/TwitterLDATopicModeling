@@ -50,8 +50,7 @@ def preprocess_text(lemma, document):
     text = tknzr.tokenize(text)
 
     # lowercase, remove words less than len 2 & remove numbers in tokenized list
-    text = [word.lower() for word in text if len(word) > 2 and not word.isdigit() and not word in ignore_words]
-    return utils.simple_preprocess(text, deacc=True, min_len=3)
+    return [word.lower() for word in text if len(word) > 2 and not word.isdigit() and not word in ignore_words]
 
 def list_to_gen(directory):
     for filename in os.listdir(directory):
