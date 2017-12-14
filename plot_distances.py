@@ -457,6 +457,10 @@ def build_aggregated_dataframe(median, internal, community):
         df = pd.read_csv(dist_path, sep='\t', header=None, names=['metric', 'distance'])
         return [comm_name, len(comm_doc_vecs), float(df.distance)]    
 
+''' an ease-of-use command line tool to calculate the internal/external JSD from/to users within/outside of
+    a clique/community of which the topic probability distributions should be calculated already from 
+    previous scripts. by no means a final solution to a problem and commented out code proves this can 
+    be worked to customize graphs accordingly, but can't be arsed to further this research '''
 def main():
     parser = argparse.ArgumentParser(description="""Calculate median distances of users in communities and use those distances to plot graphs
                                                     to run all without disturbing the dataset:
