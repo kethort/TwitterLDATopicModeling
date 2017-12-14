@@ -96,6 +96,8 @@ def median_distance_files_to_iter(aggregated_tweets_dir):
             yield path + user_topics_dir, path + user_topics_dir + '/community_median_distances'
         break
 
+''' assumes you have downloaded tweets for a topology of cliques and the communities that are created from the cliques using
+    networkx. the steps outlined on description page of github should be complete for both clique and community topologies '''
 def main():
     parser = argparse.ArgumentParser(description='Plot distances between community users and the cliques they spawned from')
     parser.add_argument('-c', '--clique_topology_file', required=True, action='store', dest='cliq_top_file', help='Location of clique topology file')
