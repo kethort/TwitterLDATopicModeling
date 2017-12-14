@@ -32,5 +32,5 @@ python -c 'import numpy; numpy.show_config()'
 printf 'd\nstopwords\nq' | python -c 'import nltk; nltk.download()'
 mv patches/english ~/nltk_data/corpora/stopwords
 
-# custom progress bar patch
+# custom progress bar patched
 cp patches/prog_class.py venv/lib/python2.7/site-packages/pyprind/prog_class.py
