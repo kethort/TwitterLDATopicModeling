@@ -22,6 +22,7 @@ ignore_words = set(stopwords.words('english'))
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
+# an override for the Gensim WikiCorpus tokenizer function
 def wiki_tokenizer(content, token_min_len=3, token_max_len=15, lower=True):
     return [
         utils.to_unicode(token) for token in utils.simple_preprocess(content, deacc=True, min_len=3) 
@@ -56,6 +57,7 @@ def list_to_gen(directory):
     for filename in os.listdir(directory):
         yield directory + str(filename)
 
+# before there was author-topic modeling, there was document corpus...
 class DocCorpus(gensim.corpora.TextCorpus):
     def __init__(self, docs_loc, lemmatize, dictionary=None, metadata=None):
         self.docs_loc = docs_loc
