@@ -24,7 +24,7 @@ Run linux_setup.sh:
 Install Python packages using pip (or use an environment like a normal person): 
 
 ```
-pip2 -r install requirements.txt
+pip2 install -r requirements.txt
 ```
 
 ### Process
