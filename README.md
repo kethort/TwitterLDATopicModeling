@@ -1,6 +1,4 @@
-# twitter_LDA_topic_modeling
-
-The research paper for this work was published in IEEE Access Database under the name "Towards Understanding Community
+The research journal for this work was published in IEEE Access Database under the name "Towards Understanding Community
 Interests with Topic Modeling"
 
 # Description
