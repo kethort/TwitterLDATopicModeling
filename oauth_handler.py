@@ -18,6 +18,7 @@ def get_access_creds():
         auth.set_access_token(str(row['access_token']), str(row['access_secret']))
         oauth_api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
         if(verify_working_credentials(oauth_api)):
+            print(str(row['consumer_key']) + ' verified')
             oauths.append(oauth_api)
     return oauths
 

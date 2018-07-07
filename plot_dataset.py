@@ -25,7 +25,7 @@ def community_size_distribution():
     plt.close()
 
 ''' assumes that all tweets (from users that exists) in a given topology are downloaded to 
-    the dnld_tweets/ directory using get_community_tweets.py scrip '''
+    the dnld_tweets/ directory using get_community_tweets.py script '''
 def user_tweet_distribution():
     with open('dnld_tweets/active_users.json', 'r') as infile:
         d = json.load(infile)
