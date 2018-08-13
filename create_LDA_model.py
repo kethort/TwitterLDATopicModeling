@@ -57,7 +57,6 @@ def list_to_gen(directory):
     for filename in os.listdir(directory):
         yield directory + str(filename)
 
-# before there was author-topic modeling, there was document corpus...
 class DocCorpus(gensim.corpora.TextCorpus):
     def __init__(self, docs_loc, lemmatize, dictionary=None, metadata=None):
         self.docs_loc = docs_loc
