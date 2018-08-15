@@ -33,9 +33,18 @@ def get_user_followers(oauths, user_ids):
     user_followers = {}
     for user in set(user_ids):
         api = auth.manage_auth_handlers(oauths)
-        user_followers[user] = api.followers_ids(id=user)
+        try: # protected tweets or user doesn't exist
+            user_followers[user] = api.followers_ids(id=user)
+        except:
+            print("Skipping user: " + str(user))
 
     return user_followers
+
+def followers_to_users_list(user_followers):
+    user_ids = []
+    for user in user_followers:
+        user_ids += user_followers[user]
+    return set(user_ids)
 
 #def convert_followers_to_edges(followers, user_followers):
 def get_nodes(user_followers):
@@ -57,9 +66,9 @@ def build_network_graph(graph, nodes, edges):
     graph.add_edges_from(edges)
 
 def main():
-    '''
     oauths = auth.get_access_creds()
 
+    '''
     latitude, longitude = get_geolocation(oauths, "Buford, GA", "city")
 
     radius = "50mi" # mi or km
@@ -79,9 +88,26 @@ def main():
     
     with open(os.path.join(search_dir, filename), 'r') as twitter_users:
     '''
+    depth = 4
+    n_followers = {}
+
     search_dir = 'twitter_geo_searches/'
-    with open(os.path.join(search_dir, '34.1180826_-83.9969963411.json'), 'r') as twitter_users:
+    filename = os.path.join(search_dir, '34.1180826_-83.9969963411.json')
+    with open(filename, 'r') as twitter_users:
         user_followers = json.load(twitter_users)
+
+    while depth:
+        if not n_followers:
+            user_ids = followers_to_users_list(user_followers)
+        else:
+            user_ids = followers_to_users_list(n_followers)
+        n_followers = get_user_followers(oauths, user_ids)
+        user_followers.update(n_followers)
+        print(len(user_followers))
+        depth -= 1
+
+    with open(filename, 'w') as outfile:
+        json.dump(user_followers, outfile, sort_keys=True)
 
     nodes = [node for node in get_nodes(user_followers)]
     edges = [edge for edge in get_edges(user_followers)]
@@ -99,6 +125,7 @@ def main():
 
     for cliques in nx.find_cliques(graph):
         print(cliques)
+
     #plt.figure(figsize=(18, 18))
     #plt.axis('off')
 
