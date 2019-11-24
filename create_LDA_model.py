@@ -17,12 +17,16 @@ import argcomplete
 from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords
 
+''' a wrapper for the Gensim library that creates LDA model either from a folder of texts 
+    or a wikipedia dump. '''
+
 DEFAULT_DICT_SIZE = 100000
 ignore_words = set(stopwords.words('english'))
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
-# an override for the Gensim WikiCorpus tokenizer function
+# an 'override' of the Gensim WikiCorpus tokenizer function
+# compares against nltk stopword list to omit useless words
 def wiki_tokenizer(content, token_min_len=3, token_max_len=15, lower=True):
     return [
         utils.to_unicode(token) for token in utils.simple_preprocess(content, deacc=True, min_len=3) 
@@ -43,6 +47,7 @@ def preprocess_text(lemma, document):
     # remove symbols excluding the @, # and \s symbol
     text = re.sub(r'[^\w@#\s]', '', text)
     
+    # use the built-in Gensim lemmatize engine 
     if lemma:
         return utils.lemmatize(text, stopwords=ignore_words, min_length=3)
 
@@ -53,11 +58,13 @@ def preprocess_text(lemma, document):
     # lowercase, remove words less than len 2 & remove numbers in tokenized list
     return [word.lower() for word in text if len(word) > 2 and not word.isdigit() and not word in ignore_words]
 
-def list_to_gen(directory):
+def filenames_to_generator(directory):
     for filename in os.listdir(directory):
         yield directory + str(filename)
 
 class DocCorpus(gensim.corpora.TextCorpus):
+    # overrides the get_texts function of Gensim TextCorpus in order to use 
+    # directory of texts as corpus, where each text file is a document
     def __init__(self, docs_loc, lemmatize, dictionary=None, metadata=None):
         self.docs_loc = docs_loc
         self.lemmatize = lemmatize
@@ -69,7 +76,7 @@ class DocCorpus(gensim.corpora.TextCorpus):
     def get_texts(self):
         pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
         func = partial(preprocess_text, self.lemmatize)
-        for tokens in pool.map(func, list_to_gen(self.docs_loc)):
+        for tokens in pool.map(func, filenames_to_generator(self.docs_loc)):
             yield tokens
         pool.terminate()
 
@@ -93,9 +100,10 @@ def build_pyLDAvis_output(corp_loc, dict_loc, lda_loc):
     vis_data = gensim_vis.prepare(lda, corpus, dictionary, sort_topics=False)
     pyLDAvis.save_html(vis_data, lda_loc.split('.')[0] + '.html')
 
-''' this is basically a wrapper for the Gensim library that creates LDA model either from a folder of texts 
-    or a wikipedia dump. nothing special here except preprocessing of text and ease of use in command line '''
 def main():
+    # a command line interface for running Gensim operations
+    # can create a corpus from a directory of texts or from a wikipedia dump
+    # options for lemmatize words, build model and/or pyLDAvis graph output
     parser = argparse.ArgumentParser(description='Create a corpus from a collection of tweets and/or build an LDA model')
     subparsers = parser.add_subparsers(dest='mode')
     

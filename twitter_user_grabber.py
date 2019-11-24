@@ -7,6 +7,8 @@ import multiprocessing
 from functools import partial
 import matplotlib.pyplot as plt
 
+''' Example script for getting twitter user topology by location '''
+
 MAX_QUERIES = 100
 
 def get_geolocation(oauths, location, scope):

@@ -4,6 +4,7 @@ import json
 import os
 import ast
 import sys
+import csv
 import argparse
 import argcomplete
 import scipy
@@ -18,13 +19,25 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 from gensim import corpora, models, matutils
 
+''' 
+    command line tool to calculate the internal/external JSD from/to users within/outside of
+    a clique/community of which the topic probability distributions should be calculated already from 
+    previous scripts. Uses matplotlib to plot the calculated data.
+    
+    This script was built using very specific instructions for research.
+    Most of the code is commented out as it won't be for typical use. 
+'''
+
+def jensen_shannon_divergence(P, Q):
+    _P = np.array(P) / norm(np.array(P), ord=1)
+    _Q = np.array(Q) / norm(np.array(Q), ord=1)
+    _M = 0.5 * (_P + _Q)
+    return 0.5 * (entropy(_P, _M) + entropy(_Q, _M))
+
 def calculate_internal_distances(community):
-    '''
-        for each user find the distance from every other user using their probability distribution vectors
-
-        Dictionary <k, v>(user_id, distribution_vector)
-
-    '''
+    # calculates jensen shannon divergance from every other user in the same community using their probability distribution vectors
+    # calculates the median of all community member results and saves the output to file
+    # saves the individual recorded divergences in file in corresponding community folder 
     distance_dir = os.path.join(community, 'calculated_distances/')
     if(os.path.exists(os.path.join(distance_dir, 'median_community_distances'))): return 
     comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
@@ -37,26 +50,16 @@ def calculate_internal_distances(community):
     with open(jen_shan_file, 'w') as out:
         for key in sorted(comm_doc_vecs):
             user = key
-            # only necessary to compare each user with any other user once
             vec_1 = comm_doc_vecs.pop(key)
 
             for key_2 in sorted(comm_doc_vecs):
                 vec_2 = comm_doc_vecs[key_2]
                 out.write('{}\t{}\t{}\n'.format(user, key_2, jensen_shannon_divergence(vec_1, vec_2)))
 
-def jensen_shannon_divergence(P, Q):
-    _P = np.array(P) / norm(np.array(P), ord=1)
-    _Q = np.array(Q) / norm(np.array(Q), ord=1)
-    _M = 0.5 * (_P + _Q)
-    return 0.5 * (entropy(_P, _M) + entropy(_Q, _M))
-
 def individual_user_distance_graphs(internal, community):
-    '''
-    creates graph displaying each user in the community comparing the jensen shannon divergences between
-    their probability distribution vectors against other users 
+    # creates graph displaying each user in the community from the result of the calculate_internal_distances function 
 
-    x-axis: users in community, y-axis: distance from observed user 
-    '''
+    # x axis: users in community, y axis: distance from observed user 
     distance_dir = os.path.join(community, 'calculated_distances/')
     if internal:
         jsd_dists = os.path.join(distance_dir, 'jensen_shannon')
@@ -94,10 +97,8 @@ def draw_scatter_graph(title, x_label, y_label, x_axis, y_axis, min_x, max_x, mi
     plt.close(fig)
 
 def calculate_aggregated_community_distances(median, internal, community):
-    '''
-    calculates and stores the median JSD for each community into a file
-    
-    '''
+    # calculates and stores the median JSD for each community into a file
+
     distance_dir = os.path.join(community, 'calculated_distances/')
     if internal:
         jsd_dists = os.path.join(distance_dir, 'jensen_shannon')
@@ -122,13 +123,11 @@ def calculate_aggregated_community_distances(median, internal, community):
         pd.DataFrame([rows]).to_csv(out_file, sep='\t', header=None, index=None)
 
 def calculate_external_distances(community):
-    '''
-    creates graph displaying each user in the community comparing the jensen shannon divergences 
-    against randomly selected users from outside communities.
+    # creates graph displaying each user in the community comparing the jensen shannon divergences 
+    # against randomly selected users from outside communities.
 
-    x-axis: users outside of community, y-axis: distance from observed user 
+    # x-axis: users outside of community, y-axis: distance from observed user 
 
-    '''
     distance_dir = os.path.join(community, 'calculated_distances/')
     if(os.path.exists(os.path.join(distance_dir, 'median_external_community_distances'))): return 
     comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
@@ -169,13 +168,13 @@ def calculate_external_distances(community):
                 out.write('{}\t{}\t{}\n'.format(user, 'rand_user', div/NUM_ITER))
 
 def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
-    '''
-    returns multiple of a list of random users not in the current users' community
+    # returns a multiple of a list of random users not in the current users' community
 
-    if number of iterations is set to 10, the random users returned is equal to:
-      10 * (len(users in the community) - 1)
+    # if number of iterations is set to 10, the random users returned is equal to:
+    #  10 * (len(users in the community) - 1)
 
-    '''
+    # this calculation allows for a broader comparison of external users. 
+
     max_external_users = len(all_community_doc_vecs) - len(comm_doc_vecs)
     internal_users = set(user for user in comm_doc_vecs)
     external_users = []
@@ -187,11 +186,10 @@ def get_rand_users(all_community_doc_vecs, comm_doc_vecs, NUM_ITER):
             return external_users
 
 def user_distance_difference_graphs(community):
-    '''
-    user to internal against user to external distance
-    graphs, puts plotted data into community directories
+    # creates graph showing twitter user topic probabiliy distribution compared to a user of the same community 
+    # and also shows that same user compared against a user external to the community 
+    # all plotted data is separated into community directories
 
-    '''
     comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
     if(len(comm_doc_vecs) <= 1): return
 
@@ -225,10 +223,8 @@ def user_distance_difference_graphs(community):
             plt.close()
 
 def community_aggregated_int_ext_distance(median, working_dir):
-    '''
-    graphs displaying median internal vs median external distances for all the communities & cliques
+    # creates graphs displaying median internal vs median external distances for all the communities & cliques
 
-    '''
     metric = 'Median' if median else 'Mean'
     metric = metric[0].lower() + metric[1:]
     int_clq_y_axis, int_comm_y_axis = community_aggregated_int_ext_distance_y_axes(working_dir, metric + '_community_distances')
@@ -259,6 +255,7 @@ def community_aggregated_int_ext_distance(median, working_dir):
                              'Clique', 'Community', output_path)
 
 def community_aggregated_int_ext_distance_y_axes(working_dir, filename):
+    # creates one file with all the median jensen shannon divergences of all communities
     clq_y_axis = []
     comm_y_axis = []
     for path, dirs, files in os.walk(working_dir):
@@ -292,11 +289,9 @@ def draw_dual_line_graph(title, x_label, y_label, y_axis_1, y_axis_2, line_1_lab
     plt.close(fig)
 
 def overall_int_dist_wrt_comm_size(median, working_dir):
-    '''
-    displays the overall median internal clique and internal community divergence in relation
-    to the sizes of the cliques or communities
+    # displays the overall median internal clique and internal community divergence in relation
+    # to the sizes of the cliques or communities
 
-    ''' 
     clq_dists = defaultdict(list)
     comm_dists = defaultdict(list)
     metric = 'Median' if median else 'Mean'
@@ -345,11 +340,8 @@ def overall_int_dist_wrt_comm_size(median, working_dir):
     plt.close()
 
 def user_topic_distribution_graph(community):
-    '''
-    Each of the user's topic probability distribution vectors can be visualized using 
-    this function
+    # creates a graph of each user's LDA topic distribution from the generated model 
 
-    '''
     output_path = os.path.join(community, 'topic_distribution_graphs/')
     if not os.path.exists(os.path.dirname(output_path)):
     	os.makedirs(os.path.dirname(output_path), 0o755)
@@ -374,6 +366,8 @@ def user_topic_distribution_graph(community):
         plt.close()
 
 def restore_original_dataset(working_dir, community):
+    # delete/backup all the already processed documents to distribution vectors
+    #  
     bak_file = os.path.join(community, 'community_doc_vecs.json.bak')
     res_file = os.path.join(community, 'community_doc_vecs.json')
     if os.path.exists(bak_file):
@@ -381,10 +375,8 @@ def restore_original_dataset(working_dir, community):
         os.remove(bak_file)
 
 def delete_inactive_communities(community):
-    '''
-    if a clique has 1 or less active members then the community and the clique must be
-    removed from the dataset
-    '''
+    # if a clique has 1 or less active members then the community and the clique must be
+    # removed from the dataset
     vec_file = os.path.join(community, 'community_doc_vecs.json')
     comm_vec_file = os.path.join(community.replace('clique', 'community'), 'community_doc_vecs.json')
     comm_doc_vecs = open_community_document_vectors_file(vec_file)
@@ -397,10 +389,8 @@ def delete_inactive_communities(community):
             os.remove(comm_vec_file)
 
 def delete_inactive_users(community):
-    '''
-    removes users from the dataset if the amount of times they tweeted is less than 10
+    # removes users from the dataset if the amount of times they tweeted is less than 10
 
-    '''
     bak_file = os.path.join(community, 'community_doc_vecs.json.bak')
     vec_file = os.path.join(community, 'community_doc_vecs.json')
     comm_doc_vecs = open_community_document_vectors_file(vec_file)
@@ -457,10 +447,66 @@ def build_aggregated_dataframe(median, internal, community):
         df = pd.read_csv(dist_path, sep='\t', header=None, names=['metric', 'distance'])
         return [comm_name, len(comm_doc_vecs), float(df.distance)]    
 
-''' an ease-of-use command line tool to calculate the internal/external JSD from/to users within/outside of
-    a clique/community of which the topic probability distributions should be calculated already from 
-    previous scripts. by no means a final solution to a problem and commented out code proves this can 
-    be worked to customize graphs accordingly, but can't be arsed to further this research '''
+def overall_average_divergence_per_model():
+    # not currently added to the command line interface
+    # this method calculates the overall internal and external average JSD from all the median community JSD results
+    # for each topic model generated and plots the data. x-axis: LDA model name y-axis: overall internal and external average JSD
+
+    # assumes you have created various models with differing topic lengths and have gone through the process
+    # of calculating the JSD for all the downloaded tweets for each topic model
+
+    lda_dir = os.path.join('data', 'wiki')
+    param_dirs = [('user_topics_wiki_25/', os.path.join(lda_dir, 'lda_25_lem_5_pass.model')), 
+                  ('user_topics_wiki_50/', os.path.join(lda_dir, 'lda_50_lem_5_pass.model')),
+                  ('user_topics_wiki_75/', os.path.join(lda_dir, 'lda_75_lem_5_pass.model')), 
+                  ('user_topics_wiki_100/', os.path.join(lda_dir, 'lda_100_lem_5_pass.model'))]
+    for user_topics_dir, lda_loc in param_dirs:
+        overall_average_divergence_per_model(user_topics_dir, lda_loc)
+
+    print('Writing overall internal & external average community distance for each topic model')
+    lda = models.LdaModel.load(lda_loc)
+    clique_int_dists = []
+    clique_ext_dists = []
+    comm_int_dists = []
+    comm_ext_dists = []
+    fieldnames = ['metric', 'distance']
+    for path, dirs, files in os.walk(user_topics_dir):
+        for community in dirs:
+            with open(path + community + '/distance_info/community_average_distances', 'r') as infile:
+                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+                if 'clique' in community:
+                    clique_int_dists += [float(row['distance']) for row in csv_reader if row['metric'] == 'jensen_shannon' and row['distance']]
+                else:
+                    comm_int_dists += [float(row['distance']) for row in csv_reader if row['metric'] == 'jensen_shannon' and row['distance']]
+
+            with open(path + community + '/distance_info/external_average_distances', 'r') as infile:
+                csv_reader = csv.DictReader(infile, delimiter='\t', fieldnames=fieldnames)
+                if 'clique' in community:
+                    clique_ext_dists += [float(row['distance']) for row in csv_reader if row['metric'] == 'jensen_shannon' and row['distance']]
+                else:
+                    comm_ext_dists += [float(row['distance']) for row in csv_reader if row['metric'] == 'jensen_shannon' and row['distance']]
+        break
+
+    if 'twitter' not in user_topics_dir:
+        with open('wiki_num_topics_divergence', 'a') as outfile:
+            outfile.write('{}\t{}\t{}\t{}\t{}\n'.format(lda.num_topics, np.average(clique_int_dists), np.average(clique_ext_dists), np.average(comm_int_dists), np.average(comm_ext_dists)))
+
+def draw_overall_average_divergence_per_model_graph():
+    # draws the graph for the result of the overall_average_divergence_per_model method
+    df = pd.read_csv('wiki_num_topics_divergence', sep='\t', header=None, index_col=0, names=['num_topics', 'clq_int', 'clq_ext', 'com_int', 'com_ext'])
+    ax = df.plot(kind='line', marker='x', color='g', x=df.index, y='com_int')
+    df.plot(kind='line', marker='o', color='b', x=df.index, y='com_ext', ax=ax, ylim=(0, np.log(2) + .001), xlim=(24, df.index.max() + 1), 
+            title='Overall Mean Divergence Per Number of Topics\nUsing CAA and Wiki Model')
+    plt.ylabel('Jensen Shannon Divergence')
+    plt.xlabel('Number of Topics')
+    plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+    plt.xticks([25, 50, 75, 100])
+    plt.subplots_adjust(bottom=0.2)
+    plt.grid()
+    plt.savefig('wiki_num_topics_divergence.eps', format='eps')
+    plt.savefig('wiki_num_topics_divergence')
+    plt.close()
+
 def main():
     parser = argparse.ArgumentParser(description="""Calculate median distances of users in communities and use those distances to plot graphs
                                                     to run all without disturbing the dataset:
@@ -488,7 +534,7 @@ def main():
     total_work = len([community for community in tqdm.tqdm(dir_to_iter(args.working_dir))])
     int_status = os.path.join(args.working_dir, 'int_dists_status')
     ext_status = os.path.join(args.working_dir, 'ext_dists_status')
-	
+
     if args.o:
         pool.map(delete_inactive_users, dir_to_iter(args.working_dir))
         pool.map(delete_inactive_communities, dir_to_iter(args.working_dir))
@@ -572,7 +618,6 @@ def main():
             ext_clq_y_axis = []
             ext_clq_y_axis1 = []
             
-
 #            int_clq_df = int_df[int_df.index.str.contains('clique')]
 #            int_clq_y_axis = int_clq_df['dist'][(int_clq_df['size'] > 3) & (int_clq_df['size'] <= 150)].tolist()
 #            int_clq_y_axis1 = int_clq_df['dist'][int_clq_df['size'] > 150].tolist()

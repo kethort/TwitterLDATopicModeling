@@ -15,6 +15,10 @@ import gensim
 from gensim import utils, corpora, models
 ignore_words = set(stopwords.words('english'))
 
+''' from the model that was created, you can calculate the topic probability distribution of unseen documents.
+    this is a command line interface using Gensim for preprocessing unseen
+    documents and calculating topic probability distributions over a given topology from an LDA model '''
+
 def write_topn_words(output_dir, lda):
     if not os.path.exists(output_dir + 'topn_words.json'):
         print('Writing topn words for LDA model')
@@ -48,7 +52,7 @@ def get_document_vectors(user_id, **kwargs):
         return
     if not user_id in kwargs['document_vectors']:
         document = preprocess_tweet(tweetpath, kwargs['lemma'])
-        # if after preprocessing the list is empty then skip that user
+        # if after preprocessing, the list is empty, then skip that user
         if not document:
             return
         # create bag of words from input document
@@ -76,10 +80,9 @@ def community_document_vectors(doc_vecs, community):
             pass
     return comm_doc_vecs
 
-''' from the model that was created, you can calculate the topic probability distribution of unseen documents.
-    this is just an ease-of-use wrapper over the already easy-to-use Gensim library for preprocessing unseen
-    documents and calculating topic probability distributions over a given topology '''
 def main():
+    # this program uses an LDA model to compare against 'documents' and outputs a json file containing {user: [topic probability distribution vector]} results
+    # it also creates the directories for the communities generated from the topology file, putting each community document vectors json file in corresponding directory
     parser = argparse.ArgumentParser(description='Create a corpus from a collection of tweets and/or build an LDA model')
     parser.add_argument('-t', '--topology_file', required=True, action='store', dest='top_file', help='Location of topology file')
     parser.add_argument('-p', '--dir_prefix', choices=['clique', 'community'], required=True, action='store', dest='dir_prefix', help='Select whether the topology contains cliques or communities')
@@ -101,14 +104,18 @@ def main():
     lda = models.LdaModel.load(args.lda_loc)
     write_topn_words(output_dir, lda)
 
+    # create a set of all users from topology file
     with open(args.top_file, 'r') as inp_file:
         users = set(str(user) for community in inp_file for user in ast.literal_eval(community))
+
+    # opens up a 'job in progress' if ran this program and stopped it 
     try:
         with open(output_dir + 'document_vectors.json', 'r') as all_community_file:
             document_vectors = json.load(all_community_file)
     except:
         document_vectors = {}
 
+    # calls get_document_vectors function using multiprocessing
     pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
     func = partial(get_document_vectors, 
                    tweets_dir=args.unseen_docs, 
@@ -120,7 +127,7 @@ def main():
     doc_vecs = [item for item in doc_vecs if item is not None]
     pool.close()
     pool.join()
-    doc_vecs = dict(doc_vecs)
+    doc_vecs = dict(doc_vecs) # {user: [topic probability distribution vector]}
 
     document_vectors.update(doc_vecs)
     with open(output_dir + 'document_vectors.json', 'w') as document_vectors_file:

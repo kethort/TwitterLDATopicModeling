@@ -3,12 +3,15 @@ import sys
 import tweepy
 import pandas as pd
 
-''' the team tried to 'skirt' the limitations of tweepy but attempts were futile '''
+''' 
+    This script opens a file with the user's twitter API authentication credentials and uses them to 
+    gain access to the twitter API 
+'''
+
 def get_access_creds():
-    '''
-        Twitter API authentication credentials are stored in a file as:
-            consumer_key \t consumer_secret \t access_token \t access_secret 
-    '''
+    #    Twitter API authentication credentials should be stored in a tab-separated (\t) file with:
+    #        consumer_key \t consumer_secret \t access_token \t access_secret 
+    
     oauths = []
     print('Building list of developer access credentials...')
     credentials = pd.read_csv('twitter_dev_accounts', sep='\t', header=None, names=['consumer_key', 'consumer_secret', 'access_token', 'access_secret'])
@@ -41,7 +44,6 @@ def manage_auth_handlers(auths):
             if status_limit > 180:
                 return api
         except tweepy.TweepError as e:
-            #print('manage_auth_handlers ' + str(e))
             pass
         finally:
             if index == (len(auths) - 1):
