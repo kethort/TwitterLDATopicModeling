@@ -28,7 +28,7 @@ pip install --upgrade -git:git://github.com/bmabey/pyLDAvis.git
 # check for BLAS installation
 python -c 'import numpy; numpy.show_config()'
 
-# custom stopword list
+# custom stopword list using nltk brown list plus extras
 printf 'd\nstopwords\nq' | python -c 'import nltk; nltk.download()'
 mv patches/english ~/nltk_data/corpora/stopwords
 
