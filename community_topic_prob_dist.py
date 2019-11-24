@@ -43,7 +43,7 @@ def draw_dist_graph(clique_name, **kwargs):
         plt.xlim([0, len(x_axis) + 1])
         plt.savefig(kwargs['output_dir'] + clique_name)
         plt.close()
-
+###
 def draw_user_to_clique_graphs(distance_dir, dist_file):
     if not os.path.exists(distance_dir + dist_file + '.png'):
         print('Drawing community members distance from clique for: ' + dist_file)
