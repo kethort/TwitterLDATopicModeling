@@ -6,8 +6,14 @@ Twitter users often associate and socialize with other users based on similar in
 
 ### Prerequisites
 
-Python 2.7 is required for use because Pattern package not compatible with Python > 2.7.
+To use Python 3, the beta version of the Pattern library must be manually installed using:
 
+pip install git+git://github.com/pattern3/pattern.git
+
+Otherwise, Python 2.7 can be used since Pattern package is not currently compatible with Python > 2.7.
+
+If you manually install Pattern3 you should remove the pattern library from the requirements.txt file 
+before installing.
 
 ### Installing
 
@@ -26,7 +32,7 @@ Run linux_setup.sh:
 Install Python packages using pip (or use an environment like a normal person): 
 
 ```
-pip2 install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 ### Process
