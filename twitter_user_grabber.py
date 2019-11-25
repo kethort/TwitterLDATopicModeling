@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import requests
 import networkx as nx 
 import ast
-from networkx.algorithms.community import k_clique_communities
+from networkx.algorithms import community
 from networkx.readwrite import json_graph
 from uszipcode import SearchEngine, SimpleZipcode, Zipcode
 import pyprind
@@ -153,7 +153,7 @@ def main():
                     cliques = [clique for cliques in find_cliques_file for clique in ast.literal_eval(cliques)]
 
             with open(output_filename, "w") as output:  
-                for node in pool.map(gather_cliques, k_clique_communities(graph, 2, cliques)):
+                for node in pool.map(gather_cliques, community.girvan_newman(graph)):
                     print(node)
                     #output.write(str([int(item) for item in node]) + ', \n')      
         elif args.print_graph: 
