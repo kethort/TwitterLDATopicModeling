@@ -36,8 +36,8 @@ def get_user_ids(oauths, latitude, longitude, radius):
 def get_user_followers(oauths, user_ids):
     # returns the followers of each user {user: [followers]}
     user_followers = {}
-    bar = pyprind.ProgPercent(len(set(user_ids)), track_time=True, title='Finding user followers') 
-    for user in set(user_ids):
+    bar = pyprind.ProgPercent(len(user_ids), track_time=True, title='Finding user followers') 
+    for user in user_ids:
         bar.update(item_id=str(user) + '\t')
         api = auth.manage_auth_handlers(oauths)
         try: # protected tweets or user doesn't exist
@@ -47,8 +47,21 @@ def get_user_followers(oauths, user_ids):
 
     return user_followers
 
-def build_network_graph(graph, nodes, edges):
-    break
+def save_networkx_graph(user_followers, filename):
+    # create networkx graph from dictionary where the nodes are the keys
+    # and the edges are the values <list>
+    graph = nx.Graph()
+
+    graph.add_nodes_from(user_followers.keys())
+
+    for k, v in user_followers.items():
+        graph.add_edges_from(([(k, t) for t in v]))
+   
+    # serialize the graph to disk
+    data = json_graph.node_link_data(graph)
+
+    with open(filename, 'w') as output:
+        json.dump(data, output, sort_keys=True, indent=4)
 
 def main():
     search_dir = 'twitter_geo_searches/'
@@ -57,7 +70,7 @@ def main():
 
     oauths = auth.get_access_creds()  
 
-    parser = argparse.ArgumentParser(description='Get twitter user ids and their follower ids from Tweepy')
+    parser = argparse.ArgumentParser(description='Get twitter user ids and their follower ids from Tweepy and save in different formats')
     subparsers = parser.add_subparsers(dest='mode')
     
     search_parser = subparsers.add_parser('search', help='Gather Twitter user ids and followers by city, state and radius')
@@ -68,7 +81,7 @@ def main():
     
     netwrkx_parser = subparsers.add_parser('netx', help='Perform operations on already generated networkx graph')
     netwrkx_parser.add_argument('-q', '--clique', action='store_true', dest='clique', help='Find cliques with networkx')
-    netwrkx_parser.add_argument('-f', '--filename', required=True, action='store', dest='filename', help='Networkx input data filename')   
+    netwrkx_parser.add_argument('-i', '--filename', required=True, action='store', dest='filename', help='Networkx input data filename')   
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -92,34 +105,12 @@ def main():
             longitude = zipcode.lng
             user_ids.extend(get_user_ids(oauths, latitude, longitude, search_radius))
             
-        user_followers = get_user_followers(oauths, user_ids)
+        user_followers = get_user_followers(oauths, set(user_ids))
         
-        with open(os.path.join(search_dir, search_filename), 'w') as outfile:
-            json.dump(user_followers, outfile, sort_keys=True, indent=4)
-
-        filename = os.path.join(search_dir, 'a.json')
-        with open(filename, 'r') as twitter_users:
-            user_followers = json.load(twitter_users)
-
-        # create networkx graph from dictionary where the nodes are the keys
-        # and the edges are the value lists
-        graph = nx.Graph()
-
-        graph.add_nodes_from(user_followers.keys())
-
-        for k, v in user_followers.items():
-            graph.add_edges_from(([(k, t) for t in v]))
-
-        
-        # serialize the graph to disk
-        data = json_graph.node_link_data(graph)
-
-        out_file = os.path.join(search_dir, 'graph_data.json')
-        with open(out_file, 'w') as output:
-            json.dump(data, output, sort_keys=True, indent=4)
+        save_networkx_graph(user_followers, os.path.join(search_dir, search_filename))
 
     if args.mode == 'netx':
-        break
+        input_filename = netwrkx_parser.filename + '.json'
 
 if __name__ == '__main__':
     sys.exit(main())
