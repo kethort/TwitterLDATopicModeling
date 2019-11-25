@@ -93,13 +93,13 @@ def main():
     search_parser.add_argument('-r', '--radius', required=True, action='store', dest='radius', help='Radius to search Twitter API for user ids (miles or kilometers -- ex: 50mi or 50km)')   
     search_parser.add_argument('-f', '--filename', required=True, action='store', dest='filename', help='Name of output file for networkx graph data')   
     
-    clique_parser = subparsers.add_parser('netx_clq', help='Perform operations on already generated networkx graph')
-    clique_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
-    clique_parser.add_argument('-x', '--clq_filename', action='store', help='Provide a filename for the serialized output of find_cliques')
-    clique_parser.add_argument('-g', '--graph_filename', required=True, action='store', dest='graph_filename', help='Networkx input data filename.')   
-    clique_parser.add_argument('-o', '--out_filename', required=True, action='store', dest='out_filename', help='Networkx output data filename')   
-    
-    clique_parser.add_argument('-k', '--comm', action='store_true', help='Find communities with networkx')
+    netx_parser = subparsers.add_parser('netx', help='Perform operations on already generated networkx graph')
+    netx_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
+    netx_parser.add_argument('-x', '--clq_filename', action='store', help='Provide a filename for the serialized output of find_cliques')
+    netx_parser.add_argument('-g', '--graph_filename', required=True, action='store', dest='graph_filename', help='Networkx input data filename.')   
+    netx_parser.add_argument('-o', '--out_filename', required=True, action='store', dest='out_filename', help='Networkx output data filename')      
+    netx_parser.add_argument('-k', '--comm', action='store_true', help='Find communities with networkx')
+    netx_parser.add_argument('-p', '--print_graph', action='store_true', help='Print networkx graph')
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -130,7 +130,7 @@ def main():
         filename = os.path.join(search_dir, search_filename)
         save_user_follower_networkx_graph(user_followers, filename)
 
-    if args.mode == 'netx_clq':
+    if args.mode == 'netx':
         graph_filename = os.path.join(search_dir, args.graph_filename + '.json')
         output_filename = os.path.join(search_dir, args.out_filename + '.json')
         graph = open_nx_graph(graph_filename)
@@ -155,7 +155,10 @@ def main():
             with open(output_filename, "w") as output:  
                 for node in pool.map(gather_cliques, k_clique_communities(graph, 2, cliques)):
                     print(node)
-                    #output.write(str([int(item) for item in node]) + ', \n')            
+                    #output.write(str([int(item) for item in node]) + ', \n')      
+        elif args.print_graph: 
+            nx.draw(graph)
+            plt.show()     
 
 
     print("Job complete")
