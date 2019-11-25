@@ -37,7 +37,8 @@ pip install -r requirements.txt
 
 ### Process
 
-1. Download Tweets for each user - get_community_tweets.py
+1. Get user and follower ids by location - twitter_user_grabber.py
+2. Download Tweets for each user - get_community_tweets.py
 2. Create an LDA model from a corpus of documents - create_LDA_model.py
 3. Generate topic probability distributions for Tweet documents - tweets_on_LDA.py
 4. Calculate distances between Tweet documents and graph them - plot_distances.py

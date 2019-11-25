@@ -13,7 +13,7 @@ def get_access_creds():
     #        consumer_key \t consumer_secret \t access_token \t access_secret 
     
     oauths = []
-    print('Building list of developer access credentials...')
+    #print('Building list of developer access credentials...')
     credentials = pd.read_csv('twitter_dev_accounts', sep='\t', header=None, names=['consumer_key', 'consumer_secret', 'access_token', 'access_secret'])
 
     for index, row in credentials.iterrows():

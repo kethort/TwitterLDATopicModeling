@@ -8,6 +8,8 @@ from functools import partial
 import matplotlib.pyplot as plt
 import requests
 import networkx as nx 
+import ast
+from networkx.algorithms.community import k_clique_communities
 from networkx.readwrite import json_graph
 from uszipcode import SearchEngine, SimpleZipcode, Zipcode
 import pyprind
@@ -66,6 +68,13 @@ def save_user_follower_networkx_graph(user_followers, filename):
 def gather_cliques(clique):
     return clique
 
+def open_nx_graph(filename):
+    data = {}
+    with open(filename, 'r') as graph_data:
+        data = json.load(graph_data)
+
+    return json_graph.node_link_graph(data)
+
 def main():
     search_dir = 'twitter_geo_searches/'
     if not os.path.exists(os.path.dirname(search_dir)):
@@ -84,11 +93,14 @@ def main():
     search_parser.add_argument('-r', '--radius', required=True, action='store', dest='radius', help='Radius to search Twitter API for user ids (miles or kilometers -- ex: 50mi or 50km)')   
     search_parser.add_argument('-f', '--filename', required=True, action='store', dest='filename', help='Name of output file for networkx graph data')   
     
-    netwrkx_parser = subparsers.add_parser('netx', help='Perform operations on already generated networkx graph')
-    netwrkx_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
-    netwrkx_parser.add_argument('-i', '--in_filename', required=True, action='store', dest='in_filename', help='Networkx input data filename')   
-    netwrkx_parser.add_argument('-o', '--out_filename', required=True, action='store', dest='out_filename', help='Networkx output data filename')   
+    clique_parser = subparsers.add_parser('netx_clq', help='Perform operations on already generated networkx graph')
+    clique_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
+    clique_parser.add_argument('-x', '--clq_filename', action='store', help='Provide a filename for the serialized output of find_cliques')
+    clique_parser.add_argument('-g', '--graph_filename', required=True, action='store', dest='graph_filename', help='Networkx input data filename.')   
+    clique_parser.add_argument('-o', '--out_filename', required=True, action='store', dest='out_filename', help='Networkx output data filename')   
     
+    clique_parser.add_argument('-k', '--comm', action='store_true', help='Find communities with networkx')
+
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
@@ -118,23 +130,35 @@ def main():
         filename = os.path.join(search_dir, search_filename)
         save_user_follower_networkx_graph(user_followers, filename)
 
-    if args.mode == 'netx':
-        input_filename = os.path.join(search_dir, args.in_filename + '.json')
+    if args.mode == 'netx_clq':
+        graph_filename = os.path.join(search_dir, args.graph_filename + '.json')
         output_filename = os.path.join(search_dir, args.out_filename + '.json')
+        graph = open_nx_graph(graph_filename)
+        cliques = []
 
-        if args.clique:
-            data = {}
-            with open(input_filename, 'r') as graph_data:
-                data = json.load(graph_data)
+        if args.clique: 
+            #with open(output_filename, "w") as out_file:  
+            for clique in pool.map(gather_cliques, nx.find_cliques(graph)):
+                cliques.append([int(member) for member in clique])
 
-            graph = json_graph.node_link_graph(data)
+            with open(output_filename, 'w') as output:
+                for clique in cliques:
+                    output.write('%s,\n' % (clique))
 
-            max_cliques = []  
-            max_cliques = pool.map(gather_cliques, nx.find_cliques(graph))
-                
-            with open(output_filename, "w") as out_file:  
-                for clique in max_cliques:
-                    out_file.write(str(clique) + '\n')
+        elif args.comm:
+            if args.clq_filename:
+                clique_filename = os.path.join(search_dir, args.clq_filename + '.json')
+                # load the clique topology file
+                with open(clique_filename, 'r') as find_cliques_file:
+                    cliques = [clique for cliques in find_cliques_file for clique in ast.literal_eval(cliques)]
+
+            with open(output_filename, "w") as output:  
+                for node in pool.map(gather_cliques, k_clique_communities(graph, 2, cliques)):
+                    print(node)
+                    #output.write(str([int(item) for item in node]) + ', \n')            
+
+
+    print("Job complete")
 
 if __name__ == '__main__':
     sys.exit(main())
