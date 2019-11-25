@@ -47,7 +47,7 @@ def get_user_followers(oauths, user_ids):
 
     return user_followers
 
-def save_networkx_graph(user_followers, filename):
+def save_user_follower_networkx_graph(user_followers, filename):
     # create networkx graph from dictionary where the nodes are the keys
     # and the edges are the values <list>
     graph = nx.Graph()
@@ -63,12 +63,16 @@ def save_networkx_graph(user_followers, filename):
     with open(filename, 'w') as output:
         json.dump(data, output, sort_keys=True, indent=4)
 
+def gather_cliques(clique):
+    return clique
+
 def main():
     search_dir = 'twitter_geo_searches/'
     if not os.path.exists(os.path.dirname(search_dir)):
         os.makedirs(os.path.dirname(search_dir), 0o755)
 
     oauths = auth.get_access_creds()  
+    pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
 
     # set up the command line arguments
     parser = argparse.ArgumentParser(description='Get twitter user ids and their follower ids from Tweepy and save in different formats')
@@ -81,17 +85,18 @@ def main():
     search_parser.add_argument('-f', '--filename', required=True, action='store', dest='filename', help='Name of output file for networkx graph data')   
     
     netwrkx_parser = subparsers.add_parser('netx', help='Perform operations on already generated networkx graph')
-    netwrkx_parser.add_argument('-q', '--clique', action='store_true', dest='clique', help='Find cliques with networkx')
-    netwrkx_parser.add_argument('-i', '--filename', required=True, action='store', dest='filename', help='Networkx input data filename')   
-
+    netwrkx_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
+    netwrkx_parser.add_argument('-i', '--in_filename', required=True, action='store', dest='in_filename', help='Networkx input data filename')   
+    netwrkx_parser.add_argument('-o', '--out_filename', required=True, action='store', dest='out_filename', help='Networkx output data filename')   
+    
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     if args.mode == 'search':
-        city = search_parser.city
-        state = search_parser.state
-        search_radius = search_parser.radius
-        search_filename = search_parser.filename + '.json'
+        city = args.city
+        state = args.state
+        search_radius = args.radius
+        search_filename = args.filename + '.json'
 
         # gets the first 50 zip codes by city and state
         zip_search = SearchEngine()
@@ -110,10 +115,26 @@ def main():
         # gets the followers of all the retrieved user ids 
         user_followers = get_user_followers(oauths, set(user_ids))
         
-        save_networkx_graph(user_followers, os.path.join(search_dir, search_filename))
+        filename = os.path.join(search_dir, search_filename)
+        save_user_follower_networkx_graph(user_followers, filename)
 
     if args.mode == 'netx':
-        input_filename = netwrkx_parser.filename + '.json'
+        input_filename = os.path.join(search_dir, args.in_filename + '.json')
+        output_filename = os.path.join(search_dir, args.out_filename + '.json')
+
+        if args.clique:
+            data = {}
+            with open(input_filename, 'r') as graph_data:
+                data = json.load(graph_data)
+
+            graph = json_graph.node_link_graph(data)
+
+            max_cliques = []  
+            max_cliques = pool.map(gather_cliques, nx.find_cliques(graph))
+                
+            with open(output_filename, "w") as out_file:  
+                for clique in max_cliques:
+                    out_file.write(str(clique) + '\n')
 
 if __name__ == '__main__':
     sys.exit(main())
