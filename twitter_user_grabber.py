@@ -70,6 +70,7 @@ def main():
 
     oauths = auth.get_access_creds()  
 
+    # set up the command line arguments
     parser = argparse.ArgumentParser(description='Get twitter user ids and their follower ids from Tweepy and save in different formats')
     subparsers = parser.add_subparsers(dest='mode')
     
@@ -92,19 +93,21 @@ def main():
         search_radius = search_parser.radius
         search_filename = search_parser.filename + '.json'
 
+        # gets the first 50 zip codes by city and state
         zip_search = SearchEngine()
         zipcodes = zip_search.by_city_and_state(city, state, returns=50)
 
         user_ids = []
         user_followers = []
-
+        # gets the user ids at each geo-location for the retrieved zip codes
         bar = pyprind.ProgPercent(len(zipcodes), track_time=True, title='Finding user ids') 
         for zipcode in zipcodes:
             bar.update(item_id=str(zipcode.zipcode) + '\t')
             latitude = zipcode.lat
             longitude = zipcode.lng
             user_ids.extend(get_user_ids(oauths, latitude, longitude, search_radius))
-            
+           
+        # gets the followers of all the retrieved user ids 
         user_followers = get_user_followers(oauths, set(user_ids))
         
         save_networkx_graph(user_followers, os.path.join(search_dir, search_filename))
