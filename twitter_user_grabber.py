@@ -10,29 +10,23 @@ import requests
 import networkx as nx 
 from networkx.readwrite import json_graph
 from uszipcode import SearchEngine, SimpleZipcode, Zipcode
-
+import logging
 
 ''' Example script for getting twitter user topology by location '''
 
 MAX_QUERIES = 100
-
-def get_geolocation(oauths, location, scope):
-    api = auth.manage_auth_handlers(oauths)
-    places = api.geo_search(query=location, granularity=scope)
-
-    location_match = places[0] # assuming that the first search result is best match
-
-    latitude = location_match.centroid[1]
-    longitude = location_match.centroid[0]
-    return latitude, longitude
+logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.CRITICAL)
 
 def get_user_ids(oauths, latitude, longitude, radius):
     tweets = []
 
     for i in range(0, MAX_QUERIES):
         api = auth.manage_auth_handlers(oauths)
-        tweet_batch = api.search(q="*", rpp=1, geocode="%s,%s,%s" % (latitude, longitude, radius))
-        tweets.extend(tweet_batch)
+        try:
+            tweet_batch = api.search(q="*", rpp=1, geocode="%s,%s,%s" % (latitude, longitude, radius))
+            tweets.extend(tweet_batch)
+        except Exception as e:
+            print(e)
 
     return [tweet.author.id for tweet in tweets]
 
@@ -73,6 +67,8 @@ def main():
     search_dir = 'twitter_geo_searches/'
     if not os.path.exists(os.path.dirname(search_dir)):
         os.makedirs(os.path.dirname(search_dir), 0o755)
+
+    search_filename = 'filename.json'
     
     oauths = auth.get_access_creds()
     location_api_key = 'Mx2ltANNNTll9Zk6OJRq4nOYIgDv4GDw9A46YfqKKs6nWmnDSPf1jNISTCGSvAjU'
@@ -93,45 +89,20 @@ def main():
         longitude = zipcode.lng
         geo_locations.append((latitude, longitude))
 
-    print(geo_locations)
+    user_ids = []
+    user_followers = []
+
+    bar = pyprind.ProgPercent(len(geo_locations), track_time=True, title='Finding user ids') 
+    for location in geo_locations:
+        latitude = location[0]
+        longitude = location[1]
+        print(len(user_ids)) 
+        user_ids.extend(get_user_ids(oauths, latitude, longitude, search_radius))
+        
+    user_followers = get_user_followers(oauths, user_ids)
     
-    # convert the city and state to a list of zip codes
-    #location_to_zipcodes_url = 'https://www.zipcodeapi.com/rest/%s/city-zips.json/%s/%s' % (location_api_key, city, state)
-
-    #zipcodes_get_request = requests.get(url = location_to_zipcodes_url)
-    #zipcodes = zipcodes_get_request.json()
-
-    # use the list of zip codes to create a list of geo-locations
-    #zipcodes_str = ', '.join(zipcodes['zip_codes'])
-    #zipcodes_to_geo_url = 'https://www.zipcodeapi.com/rest/%s/multi-info.json/%s/radians' % (location_api_key, zipcodes_str)
-
-    #geo_get_request = requests.get(url = zipcodes_to_geo_url)
-    #geo_locations_by_area = geo_get_request.json()
-
-    #geo_locations = []
-    #latitude = longitude = ''
-
-    # make a tuple packed list of geo-locations to talk Tweepy   
-    #for zipcode in zipcodes['zip_codes']:
-    #    if geo_locations_by_area[zipcode] and geo_locations_by_area[zipcode]:
-    #        latitude = geo_locations_by_area[zipcode]['lat']
-    #        longitude = geo_locations_by_area[zipcode]['lng']
-    #        geo_locations.append((latitude, longitude))
-
-    #pp = pprint.PrettyPrinter(indent=4)
-    #pp.pprint(geo_locations_by_area)
-
-    #latitude, longitude = get_geolocation(oauths, "Newport Beach, CA", "city")
-
-    
-    #filename = str(latitude) + '_' + str(longitude) + '.json'
-
-#    user_ids = get_user_ids(oauths, latitude, longitude, radius)
-
-#    user_followers = get_user_followers(oauths, user_ids)
-
-#    with open(os.path.join(search_dir, filename), 'w') as outfile:
-#        json.dump(user_followers, outfile, sort_keys=True, indent=4)
+    with open(os.path.join(search_dir, search_filename), 'w') as outfile:
+        json.dump(user_followers, outfile, sort_keys=True, indent=4)
 
     filename = os.path.join(search_dir, 'a.json')
     with open(filename, 'r') as twitter_users:

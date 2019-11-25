@@ -32,7 +32,6 @@ def verify_working_credentials(api):
     try:
         api.verify_credentials()
     except tweepy.TweepError as e:
-        print("bad")
         verified = False
     finally:
         return verified
