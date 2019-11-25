@@ -17,6 +17,8 @@ def get_access_creds():
     credentials = pd.read_csv('twitter_dev_accounts', sep='\t', header=None, names=['consumer_key', 'consumer_secret', 'access_token', 'access_secret'])
 
     for index, row in credentials.iterrows():
+        print(index)
+        print(row)
         auth = tweepy.auth.OAuthHandler(str(row['consumer_key']), str(row['consumer_secret']))
         auth.set_access_token(str(row['access_token']), str(row['access_secret']))
         oauth_api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
@@ -30,6 +32,7 @@ def verify_working_credentials(api):
     try:
         api.verify_credentials()
     except tweepy.TweepError as e:
+        print("bad")
         verified = False
     finally:
         return verified
