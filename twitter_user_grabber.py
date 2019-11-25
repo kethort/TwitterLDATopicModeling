@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import requests
 import networkx as nx 
 from networkx.readwrite import json_graph
+from uszipcode import SearchEngine, SimpleZipcode, Zipcode
 
 
 ''' Example script for getting twitter user topology by location '''
@@ -69,37 +70,61 @@ def build_network_graph(graph, nodes, edges):
     graph.add_edges_from(edges)
 
 def main():
+    search_dir = 'twitter_geo_searches/'
+    if not os.path.exists(os.path.dirname(search_dir)):
+        os.makedirs(os.path.dirname(search_dir), 0o755)
+    
     oauths = auth.get_access_creds()
-
     location_api_key = 'Mx2ltANNNTll9Zk6OJRq4nOYIgDv4GDw9A46YfqKKs6nWmnDSPf1jNISTCGSvAjU'
     
     city = 'Newport Beach'
     state = 'CA'
     search_radius = "50mi" # mi or km
+
+    zip_search = SearchEngine()
+    zipcodes = zip_search.by_city_and_state(city, state, returns=50)
+
+    geo_locations = []
+    latitude = longitude = ''
+
+    # make a tuple packed list of geo-locations from search result  
+    for zipcode in zipcodes:
+        latitude = zipcode.lat
+        longitude = zipcode.lng
+        geo_locations.append((latitude, longitude))
+
+    print(geo_locations)
     
     # convert the city and state to a list of zip codes
-    location_to_zipcodes_url = 'https://www.zipcodeapi.com/rest/%s/city-zips.json/%s/%s' % (location_api_key, city, state)
+    #location_to_zipcodes_url = 'https://www.zipcodeapi.com/rest/%s/city-zips.json/%s/%s' % (location_api_key, city, state)
 
-    zipcodes_get_request = requests.get(url = location_to_zipcodes_url)
-    zipcodes = zipcodes_get_request.json()
+    #zipcodes_get_request = requests.get(url = location_to_zipcodes_url)
+    #zipcodes = zipcodes_get_request.json()
 
-    # use the list of zip codes to create a list of geo-locations to feed Tweepy later
-    zipcodes = ', '.join(zipcodes['zip_codes'])
-    zipcodes_to_geo_url = 'https://www.zipcodeapi.com/rest/%s/multi-info.json/%s/radians' % (location_api_key, zipcodes)
+    # use the list of zip codes to create a list of geo-locations
+    #zipcodes_str = ', '.join(zipcodes['zip_codes'])
+    #zipcodes_to_geo_url = 'https://www.zipcodeapi.com/rest/%s/multi-info.json/%s/radians' % (location_api_key, zipcodes_str)
 
-    geo_get_request = requests.get(url = zipcodes_to_geo_url)
-    geo_locations_by_area = geo_get_request.json()
+    #geo_get_request = requests.get(url = zipcodes_to_geo_url)
+    #geo_locations_by_area = geo_get_request.json()
+
+    #geo_locations = []
+    #latitude = longitude = ''
+
+    # make a tuple packed list of geo-locations to talk Tweepy   
+    #for zipcode in zipcodes['zip_codes']:
+    #    if geo_locations_by_area[zipcode] and geo_locations_by_area[zipcode]:
+    #        latitude = geo_locations_by_area[zipcode]['lat']
+    #        longitude = geo_locations_by_area[zipcode]['lng']
+    #        geo_locations.append((latitude, longitude))
 
     #pp = pprint.PrettyPrinter(indent=4)
     #pp.pprint(geo_locations_by_area)
 
     #latitude, longitude = get_geolocation(oauths, "Newport Beach, CA", "city")
 
-    search_dir = 'twitter_geo_searches/'
-    if not os.path.exists(os.path.dirname(search_dir)):
-        os.makedirs(os.path.dirname(search_dir), 0o755)
-
-    filename = str(latitude) + '_' + str(longitude) + '.json'
+    
+    #filename = str(latitude) + '_' + str(longitude) + '.json'
 
 #    user_ids = get_user_ids(oauths, latitude, longitude, radius)
 
