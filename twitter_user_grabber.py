@@ -88,16 +88,16 @@ def main():
     subparsers = parser.add_subparsers(dest='mode')
     
     search_parser = subparsers.add_parser('search', help='Gather Twitter user ids and followers by city, state and radius')
-    search_parser.add_argument('-c', '--city', required=True, action='store', dest='city', help='City to search for Twitter user ids')
-    search_parser.add_argument('-s', '--state', required=True, action='store', dest='state', help='State to search for Twitter user ids')   
-    search_parser.add_argument('-r', '--radius', required=True, action='store', dest='radius', help='Radius to search Twitter API for user ids (miles or kilometers -- ex: 50mi or 50km)')   
-    search_parser.add_argument('-f', '--filename', required=True, action='store', dest='filename', help='Name of output file for networkx graph data')   
+    search_parser.add_argument('-c', '--city', required=True, action='store', dest='city', help='City to search for Twitter user ids. REQUIRED')
+    search_parser.add_argument('-s', '--state', required=True, action='store', dest='state', help='State to search for Twitter user ids. REQUIRED')   
+    search_parser.add_argument('-r', '--radius', required=True, action='store', dest='radius', help='Radius to search Twitter API for user ids (miles or kilometers -- ex: 50mi or 50km). REQUIRED')   
+    search_parser.add_argument('-f', '--filename', required=True, action='store', dest='filename', help='Name of output file for networkx graph data. REQUIRED')   
     
     netx_parser = subparsers.add_parser('netx', help='Perform operations on already generated networkx graph')
     netx_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
     netx_parser.add_argument('-x', '--clq_filename', action='store', help='Provide a filename for the serialized output of find_cliques')
-    netx_parser.add_argument('-g', '--graph_filename', required=True, action='store', dest='graph_filename', help='Networkx input data filename.')   
-    netx_parser.add_argument('-o', '--out_filename', required=True, action='store', dest='out_filename', help='Networkx output data filename')      
+    netx_parser.add_argument('-g', '--graph_filename', required=True, action='store', dest='graph_filename', help='Networkx input data filename. REQUIRED')   
+    netx_parser.add_argument('-o', '--out_filename', required=True, action='store', dest='out_filename', help='Networkx output data filename REQUIRED')      
     netx_parser.add_argument('-k', '--comm', action='store_true', help='Find communities with networkx')
     netx_parser.add_argument('-p', '--print_graph', action='store_true', help='Print networkx graph')
 
@@ -137,7 +137,6 @@ def main():
         cliques = []
 
         if args.clique: 
-            #with open(output_filename, "w") as out_file:  
             for clique in pool.map(gather_cliques, nx.find_cliques(graph)):
                 cliques.append([int(member) for member in clique])
 
