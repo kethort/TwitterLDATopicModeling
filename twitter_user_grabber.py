@@ -36,7 +36,8 @@ def get_user_ids(oauths, latitude, longitude, radius):
     return [tweet.author.id for tweet in tweets]
 
 def get_user_followers(oauths, user_ids):
-    # returns the followers of each user {user: [followers]}
+    # returns the followers of each user {user: [followers]} and also updates/returns user ids
+    followers = user_ids
     user_followers = {}
     bar = pyprind.ProgPercent(len(user_ids), track_time=True, title='Finding user followers') 
     for user in user_ids:
@@ -44,10 +45,11 @@ def get_user_followers(oauths, user_ids):
         api = auth.manage_auth_handlers(oauths)
         try: # protected tweets or user doesn't exist
             user_followers[user] = api.followers_ids(id=user)
+            followers.extend(user_followers[user])
         except:
             print("Skipping user: " + str(user))
 
-    return user_followers
+    return set(followers), user_followers
 
 def save_user_follower_networkx_graph(user_followers, filename):
     # create networkx graph from dictionary where the nodes are the keys
@@ -124,8 +126,10 @@ def main():
             longitude = zipcode.lng
             user_ids.extend(get_user_ids(oauths, latitude, longitude, search_radius))
            
-        # gets the followers of all the retrieved user ids 
-        user_followers = get_user_followers(oauths, set(user_ids))
+        n = 2
+        # gets the followers of all the retrieved user ids n number of depths
+        for i in range(0, n):
+            user_ids, user_followers = get_user_followers(oauths, set(user_ids))
         
         filename = os.path.join(search_dir, search_filename)
         save_user_follower_networkx_graph(user_followers, filename)
