@@ -1,6 +1,3 @@
-The research journal for this work was published in IEEE Access Database under the name "Towards Understanding Community
-Interests with Topic Modeling"
-
 # Description
 Twitter users often associate and socialize with other users based on similar interests. The Tweets of these users can be classified using a trained LDA model to automate the discovery of their similarities. 
 
