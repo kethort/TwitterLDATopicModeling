@@ -5,7 +5,9 @@ Twitter users often associate and socialize with other users based on similar in
 
 To use Python 3, the beta version of the Pattern library must be manually installed using:
 
-pip install git+git://github.com/pattern3/pattern.git
+```
+pip3 install git+git://github.com/pattern3/pattern.git
+```
 
 Otherwise, Python 2.7 can be used since Pattern package is not currently compatible with Python > 2.7.
 
