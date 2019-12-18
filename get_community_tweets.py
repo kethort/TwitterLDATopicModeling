@@ -15,10 +15,10 @@ import matplotlib.pyplot as plt
     "friends" to associate with. An example of what's in a topology file is in the img directory
     of project '''
 
-def get_tweets(user_id, api):
+def get_tweets(user_id, twpy_api):
     # try to get all of the tweets from the user's timeline
     # if there is an error move on, tweets will be empty and user will be added to inactive
-    cursor = tweepy.Cursor(api.user_timeline, user_id).pages()
+    cursor = tweepy.Cursor(twpy_api.user_timeline, user_id).pages()
     while True:
         try:
             tweets = [page for page in cursor]
@@ -32,9 +32,9 @@ def get_tweets(user_id, api):
 
     return tweets
 
-def user_status_count(user_id, api):
+def user_status_count(user_id, twpy_api):
     try: 
-        user = api.get_user(user_id=user_id)
+        user = twpy_api.get_user(user_id=user_id)
         if(user.statuses_count):
             count = user.statuses_count
 
@@ -73,7 +73,7 @@ def main(topology):
 
     inactive_users = read_json('dnld_tweets/inactive_users.json')
     active_users = read_json('dnld_tweets/active_users.json')
-    oauths = auth.get_access_creds()
+    twpy_api = auth.get_access_creds()
     tweets_dir = './dnld_tweets/'
 
     # put every single user (non repeating) from the topology file into a set
@@ -94,10 +94,8 @@ def main(topology):
         if str(user) in inactive_users or str(user) in active_users:
             continue
 
-        api = auth.manage_auth_handlers(oauths)
-
         # skip user if they don't exist or are inactive
-        status_count = user_status_count(user, api)
+        status_count = user_status_count(user, twpy_api)
         if status_count <= 10:
             inactive_users[str(user)] = status_count
             write_json(tweets_dir, active_users, inactive_users)
@@ -109,7 +107,7 @@ def main(topology):
             write_json(tweets_dir, active_users, inactive_users)
             continue
 
-        tweets = get_tweets(user, api)
+        tweets = get_tweets(user, twpy_api)
 
         if tweets:
             tweet_filename = tweets_dir + str(user)

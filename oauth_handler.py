@@ -1,4 +1,3 @@
-# https://dev.twitter.com/overview/api/response-codes
 import sys
 import tweepy
 import pandas as pd
@@ -11,19 +10,21 @@ import pandas as pd
 def get_access_creds():
     #    Twitter API authentication credentials should be stored in a tab-separated (\t) file with:
     #        consumer_key \t consumer_secret \t access_token \t access_secret 
-    
-    oauths = []
-    #print('Building list of developer access credentials...')
+
     credentials = pd.read_csv('twitter_dev_accounts', sep='\t', header=None, names=['consumer_key', 'consumer_secret', 'access_token', 'access_secret'])
 
-    for index, row in credentials.iterrows():
-        auth = tweepy.auth.OAuthHandler(str(row['consumer_key']), str(row['consumer_secret']))
-        auth.set_access_token(str(row['access_token']), str(row['access_secret']))
-        oauth_api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-        if(verify_working_credentials(oauth_api)):
-            #print(str(row['consumer_key']) + ' verified')
-            oauths.append(oauth_api)
-    return oauths
+    consumer_key = credentials['consumer_key'][0]
+    consumer_secret = credentials['consumer_secret'][0]
+    access_token = credentials['access_token'][0]
+    access_secret = credentials['access_secret'][0]
+
+    auth = tweepy.auth.OAuthHandler(str(consumer_key), str(consumer_secret))
+    auth.set_access_token(str(access_token), str(access_secret))
+    twpy_api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+        
+    if(verify_working_credentials(twpy_api)):
+        print('Twitter developer keys verified')
+        return twpy_api
 
 def verify_working_credentials(api):
     verified = True
@@ -34,20 +35,8 @@ def verify_working_credentials(api):
     finally:
         return verified
 
-def manage_auth_handlers(auths):
-    index = 0
-    while True:
-        api = auths[index]
-        try:
-            limit = api.rate_limit_status()
-            status_limit = limit['resources']['statuses']['/statuses/user_timeline']['remaining']
-            if status_limit > 180:
-                return api
-        except tweepy.TweepError as e:
-            pass
-        finally:
-            if index == (len(auths) - 1):
-                index = 0
-            else:
-                index += 1
+def main():
+    get_access_creds()
 
+if __name__ == '__main__':
+    sys.exit(main())
