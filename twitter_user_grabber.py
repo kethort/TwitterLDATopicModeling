@@ -123,10 +123,10 @@ def main():
         # gets the user ids at each geo-location for the retrieved zip codes
         bar = pyprind.ProgPercent(len(zipcodes), track_time=True, title='Finding user ids') 
         for zipcode in zipcodes:
-            bar.update(item_id=str(zipcode.zipcode) + '\t')
             latitude = zipcode.lat
             longitude = zipcode.lng
             user_ids.extend(get_user_ids(twpy_api, latitude, longitude, search_radius))
+            bar.update(item_id='zip code:' + str(zipcode.zipcode) + '\t')
            
         n = 2
         # gets the followers of all the retrieved user ids n number of depths
