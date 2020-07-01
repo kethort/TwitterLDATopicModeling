@@ -3,13 +3,13 @@ Twitter users often associate and socialize with other users based on similar in
 
 ### Prerequisites
 
-To use Python 3, the beta version of the Pattern library must be manually installed using:
+To use Python 3, the beta version of the Pattern library must be manually installed. As of the last commit of this repository, the beta version of Pattern is still incompatible with Python 3.
 
 ```
 pip3 install git+git://github.com/pattern3/pattern.git
 ```
 
-Otherwise, Python 2.7 can be used since Pattern package is not currently compatible with Python > 2.7.
+Python 2.7 is recommended.
 
 If you manually install Pattern3 you should remove the pattern library from the requirements.txt file 
 before installing.
@@ -19,7 +19,7 @@ before installing.
 Download:
 
 ```
-git clone https://github.com/kenneth-orton/twitter_LDA_topic_modeling.git
+git clone https://github.com/kethort/twitter_LDA_topic_modeling.git
 ```
 
 Run linux_setup.sh:
@@ -31,7 +31,17 @@ Run linux_setup.sh:
 Install Python packages using pip (or use an environment like a normal person): 
 
 ```
-pip install -r requirements.txt
+# for Python 2.7
+pip install -r requirements2.txt
+
+# for Python 3
+pip install -r requirements3.txt
+```
+
+Link to the simple-wikipedia dump:
+
+```
+https://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-pages-articles.xml.bz2
 ```
 
 ### Process

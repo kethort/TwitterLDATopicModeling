@@ -7,11 +7,6 @@ import argcomplete
 import logging
 boto3.set_stream_logger('botocore', logging.INFO)
 
-def get_access_creds(credentials_csv):
-    df = pd.read_csv(credentials_csv, sep=',')
-    return str(df['Access key ID']), str(df['Secret access key'])
-
-
 ''' command line interface for managing Amazon AWS bucket '''
 def main():
     parser = argparse.ArgumentParser(description='Upload or download files/directories to or from an S3 bucket')

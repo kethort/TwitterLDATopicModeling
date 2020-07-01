@@ -90,15 +90,15 @@ def build_LDA_model(corp_loc, dict_loc, num_topics, num_pass, lda_loc):
     build_pyLDAvis_output(corp_loc, dict_loc, lda_loc)
 
 def build_pyLDAvis_output(corp_loc, dict_loc, lda_loc):
-    if not 'model' in lda_loc:
+    if not '.model' in lda_loc:
         lda_loc += '.model'
-
+    
     corpus = MmCorpus(corp_loc)
     dictionary = Dictionary.load(dict_loc)
     lda = models.LdaModel.load(lda_loc)
-    
-    vis_data = gensim_vis.prepare(lda, corpus, dictionary, sort_topics=False)
-    pyLDAvis.save_html(vis_data, lda_loc.split('.')[0] + '.html')
+
+    vis_data = gensim_vis.prepare(lda, corpus, dictionary, sort_topics=False) 
+    pyLDAvis.save_html(vis_data, lda_loc.split('.model')[0] + '.html')
 
 def main():
     # a command line interface for running Gensim operations

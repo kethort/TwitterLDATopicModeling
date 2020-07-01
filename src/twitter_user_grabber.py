@@ -80,7 +80,6 @@ def main():
     if not os.path.exists(os.path.dirname(search_dir)):
         os.makedirs(os.path.dirname(search_dir), 0o755)
 
-    twpy_api = auth.get_access_creds()  
     pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
 
     # set up the command line arguments
@@ -91,7 +90,9 @@ def main():
     search_parser.add_argument('-c', '--city', required=True, action='store', dest='city', help='City to search for Twitter user ids. REQUIRED')
     search_parser.add_argument('-s', '--state', required=True, action='store', dest='state', help='State to search for Twitter user ids. REQUIRED')   
     search_parser.add_argument('-r', '--radius', required=True, action='store', dest='radius', help='Radius to search Twitter API for user ids (miles or kilometers -- ex: 50mi or 50km). REQUIRED')   
+    search_parser.add_argument('-d', '--depth', required=True, action='store', dest='depth', help='This value represents how far to traverse into user follower relationships when searching for followers. REQUIRED')
     search_parser.add_argument('-f', '--filename', required=True, action='store', dest='filename', help='Name of output file for networkx graph data. REQUIRED')   
+    search_parser.add_argument('-z', '--creds', required=True, action='store', dest='creds', help='Path to Twitter developer access credentials REQUIRED')   
     
     netx_parser = subparsers.add_parser('netx', help='Perform operations on already generated networkx graph')
     netx_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
@@ -113,6 +114,11 @@ def main():
         state = args.state
         search_radius = args.radius
         search_filename = args.filename + '.json'
+        twpy_api = auth.get_access_creds(args.creds)  
+
+        if not twpy_api:
+            print('Error: Twitter developer access credentials denied')
+            return
 
         # gets the first 50 zip codes by city and state
         zip_search = SearchEngine()
@@ -128,9 +134,8 @@ def main():
             user_ids.extend(get_user_ids(twpy_api, latitude, longitude, search_radius))
             bar.update(item_id='zip code:' + str(zipcode.zipcode) + '\t')
            
-        n = 2
         # gets the followers of all the retrieved user ids n number of depths
-        for i in range(0, n):
+        for i in range(0, int(args.depth)):
             user_ids, user_followers = get_user_followers(twpy_api, set(user_ids))
         
         filename = os.path.join(search_dir, search_filename)

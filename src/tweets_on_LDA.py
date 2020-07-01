@@ -73,7 +73,7 @@ def get_doc_topics(lda, bow):
 
 def community_document_vectors(doc_vecs, community):
     comm_doc_vecs = {}
-    for user in ast.literal_eval(community):
+    for user in ast.literal_eval(community.replace('],', ']')): 
         try:
             comm_doc_vecs[str(user)] = doc_vecs[str(user)]
         except:
@@ -94,7 +94,7 @@ def main():
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
-    output_dir = args.working_dir + '/'
+    output_dir = os.path.join(args.working_dir, '')
     if not os.path.exists(os.path.dirname(output_dir)):
         os.makedirs(os.path.dirname(output_dir), 0o755)
 
@@ -106,7 +106,7 @@ def main():
 
     # create a set of all users from topology file
     with open(args.top_file, 'r') as inp_file:
-        users = set(str(user) for community in inp_file for user in ast.literal_eval(community))
+        users = set(str(user) for community in inp_file for user in ast.literal_eval(community.replace('],', ']')))
 
     # opens up a 'job in progress' if ran this program and stopped it 
     try:
@@ -136,7 +136,7 @@ def main():
     print('Building directories')
     with open(args.top_file, 'r') as topology_file:
         for i, community in enumerate(topology_file):
-            community_dir = output_dir + args.dir_prefix + '_' + str(i) + '/'
+            community_dir = os.path.join(output_dir, args.dir_prefix + '_' + str(i) + '/')
             if not os.path.exists(os.path.dirname(community_dir)):
                 os.makedirs(os.path.dirname(community_dir), 0o755)
             comm_doc_vecs = community_document_vectors(doc_vecs, community)

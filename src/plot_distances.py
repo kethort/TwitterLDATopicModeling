@@ -136,14 +136,12 @@ def calculate_external_distances(community):
     jen_shan_file = os.path.join(distance_dir, 'jensen_shannon_ext')
     if os.path.exists(jen_shan_file): os.remove(jen_shan_file)
 
-    working_dir = community.strip('/').split('/')[0]
+    community_pos = len(community.strip('/').split('/')) - 1
+    working_dir = community.strip('/').split('/')[0:community_pos]
+    working_dir = '/'.join(working_dir)
+
     with open(os.path.join(working_dir, 'document_vectors.json'), 'r') as all_community_doc_vecs_file:
         all_community_doc_vecs = json.load(all_community_doc_vecs_file)
-
-    out_path = community + '/calculate_external_distancess/jensen_shannon/'
-
-    if not os.path.exists(os.path.dirname(out_path)):
-        os.makedirs(os.path.dirname(out_path), 0o755)
 
     NUM_ITER = 10
     x_axis = np.arange(1, len(comm_doc_vecs))
@@ -540,7 +538,7 @@ def main():
         pool.map(delete_inactive_communities, dir_to_iter(args.working_dir))
     if args.r:
         func = partial(restore_original_dataset, args.working_dir)
-        pool.map(restore_original_dataset, dir_to_iter(args.working_dir))
+        pool.map(func, dir_to_iter(args.working_dir))
     if args.i:
         if not os.path.exists(int_status): calc_individual_dists_helper(int_status, True, pool, total_work, args.working_dir)
     if args.I:

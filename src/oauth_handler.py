@@ -7,11 +7,13 @@ import pandas as pd
     gain access to the twitter API 
 '''
 
-def get_access_creds():
+def get_access_creds(dev_access_creds):
+    #    input is the path to the file containing the Twitter dev access credentials
+
     #    Twitter API authentication credentials should be stored in a tab-separated (\t) file with:
     #        consumer_key \t consumer_secret \t access_token \t access_secret 
 
-    credentials = pd.read_csv('twitter_dev_accounts', sep='\t', header=None, names=['consumer_key', 'consumer_secret', 'access_token', 'access_secret'])
+    credentials = pd.read_csv(dev_access_creds, sep='\t', header=None, names=['consumer_key', 'consumer_secret', 'access_token', 'access_secret'])
 
     consumer_key = credentials['consumer_key'][0]
     consumer_secret = credentials['consumer_secret'][0]
@@ -25,6 +27,8 @@ def get_access_creds():
     if(verify_working_credentials(twpy_api)):
         print('Twitter developer keys verified')
         return twpy_api
+    else:
+        return False
 
 def verify_working_credentials(api):
     verified = True
@@ -35,8 +39,8 @@ def verify_working_credentials(api):
     finally:
         return verified
 
-def main():
-    get_access_creds()
+def main(dev_access_creds):
+    get_access_creds(dev_access_creds)
 
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(main(sys.argv[1]))
