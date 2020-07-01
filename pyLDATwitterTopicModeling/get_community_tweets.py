@@ -46,7 +46,10 @@ def user_status_count(user_id, twpy_api):
 def write_tweets(tweets, tweet_filename):
     with open(tweet_filename, 'w') as user_tweets:
         for tweet in tweets:
-            user_tweets.write(tweet + '\n')
+	    if (int(sys.version.split('.')[0]) < 3): # python version less than 3
+            	user_tweets.write(tweet.encode('utf-8') + '\n')
+            else:
+                user_tweets.write(tweet + '\n')
 
 def read_json(file_name):
     try:
