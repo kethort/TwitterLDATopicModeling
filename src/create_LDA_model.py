@@ -16,6 +16,7 @@ import argparse
 import argcomplete
 from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
 
 ''' a command-line utility for the Gensim library that creates LDA model either from a folder of texts 
     or a wikipedia dump. '''

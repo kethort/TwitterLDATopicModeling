@@ -19,7 +19,7 @@ import argcomplete
 
 ''' Example script for getting twitter user topology by location '''
 
-MAX_QUERIES = 100
+MAX_QUERIES = 200
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.CRITICAL)
 
 def get_user_ids(twpy_api, latitude, longitude, radius):
@@ -75,6 +75,10 @@ def open_nx_graph(filename):
 
     return json_graph.node_link_graph(data)
 
+def write_json(working_dir, users):
+    with open(os.path.join(working_dir, 'users.json'), 'w') as outfile:
+        json.dump(users, outfile, sort_keys=True, indent=4)
+
 def main():
     search_dir = 'twitter_geo_searches/'
     if not os.path.exists(os.path.dirname(search_dir)):
@@ -110,6 +114,10 @@ def main():
         return
 
     if args.mode == 'search':
+        dir_end = len(args.filename.strip('/').split('/')) - 1
+        working_dir = args.filename.strip('/').split('/')[0:dir_end]
+        working_dir = '/'.join(working_dir) + '/'
+        
         city = args.city
         state = args.state
         search_radius = args.radius
@@ -129,10 +137,11 @@ def main():
         # gets the user ids at each geo-location for the retrieved zip codes
         bar = pyprind.ProgPercent(len(zipcodes), track_time=True, title='Finding user ids') 
         for zipcode in zipcodes:
+            bar.update(item_id='zip code:' + str(zipcode.zipcode) + '\t')
             latitude = zipcode.lat
             longitude = zipcode.lng
             user_ids.extend(get_user_ids(twpy_api, latitude, longitude, search_radius))
-            bar.update(item_id='zip code:' + str(zipcode.zipcode) + '\t')
+            write_json(working_dir, user_ids)
            
         # gets the followers of all the retrieved user ids n number of depths
         for i in range(0, int(args.depth)):
