@@ -10,8 +10,7 @@ export LAPACK=/usr/lib/liblapack.so
 export ATLAS=/usr/lib/libatlas.so
 
 # more required dependencies
-sudo apt-get install -y default-mysql-server libmariadb-dev-compat libmariadb-dev
-sudo apt-get install python-tk
+sudo apt-get install -y default-mysql-server libmariadb-dev-compat libmariadb-dev python-tk
 
 # create virtual_env and install requirements
 cd TwitterLDATopicModeling/
@@ -24,9 +23,6 @@ virtualenv -p /usr/bin/python2.7 py2_enviro
 source py2_enviro/bin/activate
 pip install -r requirements.txt
 sudo activate-global-python-argcomplete
-
-# check for BLAS installation
-python -c 'import numpy; numpy.show_config()'
 
 # stopword list using nltk brown corpora 
 python patches/nltk_downloads.py
