@@ -10,6 +10,8 @@ Python 3.6 can be used with the pattern library, though it may need to be built 
 
 ### Installing
 
+## Linux
+
 Download:
 
 ```
@@ -36,6 +38,14 @@ Link to the simple-wikipedia dump:
 
 ```
 https://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-pages-articles.xml.bz2
+```
+## Mac osx
+The installation is very similar to the linux installation:
+
+```
+extra install instructions in osx_setup_py3.6.info
+
+pip install -r requirements_py3_OSX.txt
 ```
 
 ### Process
