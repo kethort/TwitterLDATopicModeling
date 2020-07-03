@@ -13,7 +13,7 @@ import argparse
 import argcomplete
 
 ''' a topology of twitter users is found based on follower relationships. networkx was used to
-    find maximal cliques and discover communities derived from a clique based on set number of 
+    find maximal cliques and discover communities derived from a clique based on set number of
     "friends" to associate with. An example of what's in a topology file is in the img directory
     of project '''
 
@@ -28,11 +28,11 @@ def get_tweets(user_id, twpy_api):
 
     except tweepy.TweepError as e:
         pass
-        
+
     return tweets
 
 def user_status_count(user_id, twpy_api):
-    try: 
+    try:
         user = twpy_api.get_user(user_id=user_id)
         if(user.statuses_count):
             count = user.statuses_count
@@ -46,7 +46,7 @@ def user_status_count(user_id, twpy_api):
 def write_tweets(tweets, tweet_filename):
     with open(tweet_filename, 'w') as user_tweets:
         for tweet in tweets:
-	        if (int(sys.version.split('.')[0]) < 3): # python version less than 3
+            if (int(sys.version.split('.')[0]) < 3): # python version less than 3
             	user_tweets.write(tweet.encode('utf-8') + '\n')
             else:
                 user_tweets.write(tweet + '\n')
@@ -68,8 +68,8 @@ def write_json(tweets_dir, active_users, inactive_users):
 def main():
     # the output to this script saves two json files inside the downloaded tweets directory,
     # one json file has all the active users the other has all inactive users from the topology
-    # user activity is based on status count and availabilty of tweets (public vs private) 
-    
+    # user activity is based on status count and availabilty of tweets (public vs private)
+
     # script can be stopped and started in the middle of running it without losing progress
     parser = argparse.ArgumentParser(description='Get tweets of all twitter user ids in the provided topology file')
     parser.add_argument('-t', '--topology_file', required=True, action='store', dest='top_file', help='Location of topology file')
@@ -98,7 +98,7 @@ def main():
 
     # download tweets for every single user in the set
     # separate active users from inactive users based on status count and availability
-    bar = pyprind.ProgPercent(len(comm_set), track_time=True, title='Downloading Tweets') 
+    bar = pyprind.ProgPercent(len(comm_set), track_time=True, title='Downloading Tweets')
     while comm_set:
         user = comm_set.pop()
         bar.update(item_id=str(user) + '\t')
@@ -126,7 +126,7 @@ def main():
             write_tweets(tweets, tweet_filename)
             active_users[str(user)] = status_count
         else:
-            inactive_users[str(user)] = 0 
+            inactive_users[str(user)] = 0
 
         write_json(tweets_dir, active_users, inactive_users)
 

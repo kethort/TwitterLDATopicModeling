@@ -1,0 +1,13 @@
+# download python 3.6xx from this link
+https://www.python.org/downloads/release/python-368/
+
+xcode-select --install
+
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+python3 get-pip.py
+
+pip install virtualenv
+
+# stopword list using nltk brown corpora 
+python patches/nltk_downloads.py
+cp patches/english ~/nltk_data/corpora/stopwords
