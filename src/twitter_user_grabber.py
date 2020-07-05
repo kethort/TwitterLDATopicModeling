@@ -83,6 +83,7 @@ def read_json(filename):
         return []
 
 def write_json(filename, data):
+    print("Saving: " + filename)
     with open(filename, 'w') as outfile:
         json.dump(data, outfile, sort_keys=True, indent=4)
 
@@ -145,8 +146,8 @@ def main():
 
         for i in range(0, int(args.depth)):
             user_ids, user_followers = get_user_followers(twpy_api, set(user_ids))
-            write_json(os.path.join(args.filename), list(set(user_ids)))
-            write_json(os.path.join(args.filename), list(set(user_followers)))
+            write_json(args.filename, list(set(user_ids)))
+            write_json(os.path.join(working_dir, 'followers.json'), user_followers)
 
 
     if args.mode == 'search':
