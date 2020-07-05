@@ -75,9 +75,23 @@ def open_nx_graph(filename):
 
     return json_graph.node_link_graph(data)
 
-def write_json(working_dir, users):
-    with open(os.path.join(working_dir, 'users.json'), 'w') as outfile:
-        json.dump(users, outfile, sort_keys=True, indent=4)
+def read_json(filename):
+    try:
+        with open(filename, 'r') as infile:
+            return json.load(infile)
+    except:
+        return []
+
+def write_json(filename, data):
+    with open(filename, 'w') as outfile:
+        json.dump(data, outfile, sort_keys=True, indent=4)
+
+def get_directory_of_file(filename):
+    filename_loc = len(filename.strip('/').split('/')) - 1
+    working_dir = filename.strip('/').split('/')[0:filename_loc]
+    working_dir = '/'.join(working_dir) + '/'
+
+    return working_dir
 
 def main():
     search_dir = 'twitter_geo_searches/'
@@ -98,6 +112,11 @@ def main():
     search_parser.add_argument('-f', '--filename', required=True, action='store', dest='filename', help='Name of output file for networkx graph data. REQUIRED')   
     search_parser.add_argument('-z', '--creds', required=True, action='store', dest='creds', help='Path to Twitter developer access credentials REQUIRED')   
     
+    continue_parser = subparsers.add_parser('getfws', help='Takes in already gathered jsonified list of users and retrieves their followers')
+    continue_parser.add_argument('-f', '--filename', action='store', help='Filename of the previously saved Twitter users ids in .json format')
+    continue_parser.add_argument('-d', '--depth', required=True, action='store', dest='depth', help='This value represents how far to traverse into user follower relationships when searching for followers. REQUIRED')
+    continue_parser.add_argument('-z', '--creds', required=True, action='store', dest='creds', help='Path to Twitter developer access credentials REQUIRED')   
+
     netx_parser = subparsers.add_parser('netx', help='Perform operations on already generated networkx graph')
     netx_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
     netx_parser.add_argument('-x', '--clq_filename', action='store', help='Provide a filename for the serialized output of find_cliques')
@@ -113,10 +132,25 @@ def main():
         print('ERROR: No arguments provided. Use -h or --help for help')
         return
 
+    if args.mode == 'getfws':
+        twpy_api = auth.get_access_creds(args.creds)  
+        working_dir = get_directory_of_file(args.filename)
+
+        if not twpy_api:
+            print('Error: Twitter developer access credentials denied')
+            return
+
+        user_ids = read_json(args.filename)
+        if not user_ids: return
+
+        for i in range(0, int(args.depth)):
+            user_ids, user_followers = get_user_followers(twpy_api, set(user_ids))
+            write_json(os.path.join(args.filename), list(set(user_ids)))
+            write_json(os.path.join(args.filename), list(set(user_followers)))
+
+
     if args.mode == 'search':
-        dir_end = len(args.filename.strip('/').split('/')) - 1
-        working_dir = args.filename.strip('/').split('/')[0:dir_end]
-        working_dir = '/'.join(working_dir) + '/'
+        working_dir = get_directory_of_file(args.filename)
         
         city = args.city
         state = args.state
@@ -141,7 +175,7 @@ def main():
             latitude = zipcode.lat
             longitude = zipcode.lng
             user_ids.extend(get_user_ids(twpy_api, latitude, longitude, search_radius))
-            write_json(working_dir, user_ids)
+            write_json(os.path.join(working_dir, 'users.json'), list(set(user_ids)))
            
         # gets the followers of all the retrieved user ids n number of depths
         for i in range(0, int(args.depth)):
