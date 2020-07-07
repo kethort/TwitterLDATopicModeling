@@ -24,14 +24,18 @@ logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.CRITICAL)
 
 def save_user_follower_networkx_graph(user_followers, filename):
     # create networkx graph from dictionary where the nodes are the keys
-    # and the edges are the values <list>
+    # and the edges are the key value pairs 
     graph = nx.Graph()
-
     graph.add_nodes_from(user_followers.keys())
 
     for k, v in user_followers.items():
-        graph.add_edges_from(([(k, t) for t in v]))
+        graph.add_edges_from(([(int(k), t) for t in v]))
 
+    #data = list(nx.enumerate_all_cliques(graph))
+    #print(data)
+    #data = list(nx.find_cliques(graph))
+    #print(data)
+    #res = nx.node_clique_number(graph)
     # serialize the graph to disk
     data = json_graph.node_link_data(graph)
 
@@ -47,6 +51,19 @@ def open_nx_graph(filename):
         data = json.load(graph_data)
 
     return json_graph.node_link_graph(data)
+
+def pythonify_dict(data):
+    for k in data:
+        value = data[k]
+        try:
+            newkey = int(k)
+            del data[k]
+            k = newkey
+        except Exception as e:
+            print(str(e))
+            pass
+
+        data[k] = value
 
 def read_json(filename):
     try:
@@ -110,12 +127,6 @@ def traverse_user_followers(depth, twpy_api, working_dir, filename, user_ids):
         write_json(os.path.join(working_dir, 'followers.json'), user_followers)
 
 def main():
-    search_dir = 'twitter_geo_searches/'
-    if not os.path.exists(os.path.dirname(search_dir)):
-        os.makedirs(os.path.dirname(search_dir), 0o755)
-
-    pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
-
     # set up the command line arguments
     parser = argparse.ArgumentParser(description='Get twitter user ids and their follower ids from Tweepy and save in different formats')
     subparsers = parser.add_subparsers(dest='mode')
@@ -134,12 +145,14 @@ def main():
     continue_parser.add_argument('-z', '--creds', required=True, action='store', dest='creds', help='Path to Twitter developer access credentials REQUIRED')
 
     netx_parser = subparsers.add_parser('netx', help='Perform operations on already generated networkx graph')
-    netx_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
-    netx_parser.add_argument('-x', '--clq_filename', action='store', help='Provide a filename for the serialized output of find_cliques')
-    netx_parser.add_argument('-g', '--graph_filename', required=True, action='store', dest='graph_filename', help='Networkx input data filename. REQUIRED')
+    netx_parser.add_argument('-g', '--gen_graph', required=True, action='store_true', dest='gen_graph', help='Generate networkx graph from user follwers dictionary')
+    netx_parser.add_argument('-i', '--in_filename', required=True, action='store', dest='in_filename', help='User followers dictionary file REQUIRED')
     netx_parser.add_argument('-o', '--out_filename', required=True, action='store', dest='out_filename', help='Networkx output data filename REQUIRED')
-    netx_parser.add_argument('-k', '--comm', action='store_true', help='Find communities with networkx')
-    netx_parser.add_argument('-p', '--print_graph', action='store_true', help='Print networkx graph')
+    #netx_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
+    #netx_parser.add_argument('-x', '--clq_filename', action='store', help='Provide a filename for the serialized output of find_cliques')
+    #netx_parser.add_argument('-g', '--graph_filename', required=True, action='store', dest='graph_filename', help='Networkx input data filename. REQUIRED')
+    #netx_parser.add_argument('-k', '--comm', action='store_true', help='Find communities with networkx')
+    #netx_parser.add_argument('-p', '--print_graph', action='store_true', help='Print networkx graph')
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -196,33 +209,12 @@ def main():
         save_user_follower_networkx_graph(user_followers, filename)
 
     if args.mode == 'netx':
-        graph_filename = os.path.join(search_dir, args.graph_filename + '.json')
-        output_filename = os.path.join(search_dir, args.out_filename + '.json')
-        graph = open_nx_graph(graph_filename)
-        cliques = []
-
-        if args.clique:
-            for clique in pool.map(gather_cliques, nx.find_cliques(graph)):
-                cliques.append([int(member) for member in clique])
-
-            with open(output_filename, 'w') as output:
-                for clique in cliques:
-                    output.write('%s,\n' % (clique))
-
-        elif args.comm:
-            if args.clq_filename:
-                clique_filename = os.path.join(search_dir, args.clq_filename + '.json')
-                # load the clique topology file
-                with open(clique_filename, 'r') as find_cliques_file:
-                    cliques = [clique for cliques in find_cliques_file for clique in ast.literal_eval(cliques)]
-
-            with open(output_filename, "w") as output:
-                for node in pool.map(gather_cliques, community.girvan_newman(graph)):
-                    print(node)
-                    #output.write(str([int(item) for item in node]) + ', \n')
-        elif args.print_graph:
-            nx.draw(graph)
-            plt.show()
+    	if args.gen_graph:
+	        user_followers = read_json(args.in_filename)
+	        pythonify_dict(user_followers)
+	        print(len(user_followers))
+	        output_filename = args.out_filename + '.json'
+	        save_user_follower_networkx_graph(user_followers, output_filename)
 
 
     print("Job complete")
