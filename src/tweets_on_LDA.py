@@ -64,7 +64,7 @@ def get_document_vectors(user_id, **kwargs):
         return (user_id, dense_vec.tolist())
     else:
         return (user_id, kwargs['document_vectors'][user_id])
-    
+
 # http://stackoverflow.com/questions/17310933/document-topical-distribution-in-gensim-lda
 def get_doc_topics(lda, bow):
     gamma, _ = lda.inference([bow])
@@ -73,7 +73,7 @@ def get_doc_topics(lda, bow):
 
 def community_document_vectors(doc_vecs, community):
     comm_doc_vecs = {}
-    for user in ast.literal_eval(community.replace('],', ']')): 
+    for user in ast.literal_eval(community):
         try:
             comm_doc_vecs[str(user)] = doc_vecs[str(user)]
         except:
@@ -106,9 +106,9 @@ def main():
 
     # create a set of all users from topology file
     with open(args.top_file, 'r') as inp_file:
-        users = set(str(user) for community in inp_file for user in ast.literal_eval(community.replace('],', ']')))
+        users = set(str(user) for community in inp_file for user in ast.literal_eval(community))
 
-    # opens up a 'job in progress' if ran this program and stopped it 
+    # opens up a 'job in progress' if ran this program and stopped it
     try:
         with open(output_dir + 'document_vectors.json', 'r') as all_community_file:
             document_vectors = json.load(all_community_file)
@@ -117,12 +117,12 @@ def main():
 
     # calls get_document_vectors function using multiprocessing
     pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
-    func = partial(get_document_vectors, 
-                   tweets_dir=args.unseen_docs, 
-                   document_vectors=document_vectors, 
-                   dictionary=model_dict, 
+    func = partial(get_document_vectors,
+                   tweets_dir=args.unseen_docs,
+                   document_vectors=document_vectors,
+                   dictionary=model_dict,
                    lda_model=lda,
-                   lemma=args.lemma) 
+                   lemma=args.lemma)
     doc_vecs = pool.map(func, users)
     doc_vecs = [item for item in doc_vecs if item is not None]
     pool.close()
