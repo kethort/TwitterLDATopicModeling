@@ -32,13 +32,14 @@ def get_tweets(user_id, twpy_api, num_tweets):
     return tweets
 
 def user_status_count(user_id, twpy_api):
+    count = 0
     try:
         user = twpy_api.get_user(user_id=user_id)
         if(user.statuses_count):
             count = user.statuses_count
 
     except tweepy.TweepError as e:
-        count = 0
+        pass
 
     finally:
         return count
