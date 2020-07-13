@@ -18,13 +18,13 @@ import logging
 import argparse
 import argcomplete
 
-''' Example script for getting twitter user topology by location '''
+''' Script for getting twitter user topology by location '''
 
 MAX_QUERIES = 200
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.CRITICAL)
 
 def build_netx_graph(user_followers):
-	# generates a networkx graph from the user followers input dictionary
+	# generates a networkx graph from a dictionary containing users and their followers 
     print('Building networkx graph from user followers dictionary')
     graph = nx.Graph()
     graph.add_nodes_from(user_followers.keys())
@@ -36,6 +36,7 @@ def build_netx_graph(user_followers):
 
 def generate_cliques(graph, filename, min_size=4):
     # generates a topology of maximal cliques from a given networkx graph
+    # this process eats up lots of memory and takes a long to complete on very large datasets
     print('Generating cliques from networkx graph')
     data = []
 
@@ -68,6 +69,7 @@ def open_nx_graph(filename):
     return json_graph.node_link_graph(data)
 
 def pythonify_dict(data):
+    # converts all keys in a dictionary to integers
     for k in data:
         value = data[k]
         try:
@@ -89,7 +91,7 @@ def read_json(filename):
 
 def write_json(filename, data):
     with open(filename, 'w') as outfile:
-        json.dump(data, outfile, sort_keys=True)
+        json.dump(data, outfile + '.json', sort_keys=True)
 
 def get_directory_of_file(filename):
     filename_loc = len(filename.strip('/').split('/')) - 1
@@ -110,7 +112,7 @@ def get_user_ids(twpy_api, latitude, longitude, radius):
 
     return [tweet.author.id for tweet in tweets]
 
-def get_user_followers(twpy_api, working_dir, user_ids):
+def get_user_followers(twpy_api, working_dir, filename, user_ids):
     # returns the followers of each user {user: [followers]} and also updates/returns user ids
     user_followers = {}
     bar = pyprind.ProgPercent(len(user_ids), track_time=True, title='Finding user followers')
@@ -121,27 +123,32 @@ def get_user_followers(twpy_api, working_dir, user_ids):
         except Exception as e:
             print("Skipping user: " + str(user))
         else:
-            current_followers = read_json(os.path.join(working_dir, 'followers.json'))
+            current_followers = read_json(os.path.join(working_dir, filename + '.json'))
+            # this conditional handles the first time that the file is written to
             if isinstance(current_followers, dict):
                 current_followers[str(user)] = user_followers[user]
-                write_json(os.path.join(working_dir, 'followers.json'), current_followers)
+                write_json(os.path.join(working_dir, filename), current_followers)
             else:
-                write_json(os.path.join(working_dir, 'followers.json'), user_followers)
+                write_json(os.path.join(working_dir, filename), user_followers)
 
     return user_followers
 
-def traverse_user_followers(depth, twpy_api, working_dir, filename, user_ids):
+def collect_user_followers(depth, twpy_api, working_dir, filename, user_ids):
+    # the depth value is how far into the user follower relationship to collect user followers
+    # if n == 2 then the list of users will grow by two times the depth of the amount of followers collected 
+    # and the entire collection of those users followers will compose the resulting dictionary
     for i in range(0, int(depth)):
-        user_followers = get_user_followers(twpy_api, working_dir, set(user_ids))
+        user_followers = get_user_followers(twpy_api, working_dir, filename, set(user_ids))
 
-        # update the list of user_ids to include the followers of those users
+        # update the list of user_ids to include the followers 
         for user in user_followers:
             user_ids.extend(user_followers[user])
 
-        write_json(filename, list(set(user_ids)))
-        write_json(os.path.join(working_dir, 'followers.json'), user_followers)
+        write_json(filename + '-users', list(set(user_ids)))
+        write_json(os.path.join(working_dir, filename), user_followers)
 
 def convert_followers_to_users(input_file, out_file, working_dir):
+    # flattens a dictionary of {user: [followers]} into a single list of users
     print('Converting user followers to users')
     user_followers = read_json(input_file)
     users = []
@@ -152,13 +159,12 @@ def convert_followers_to_users(input_file, out_file, working_dir):
 
     users = list(set(users))
 
-    save_path = os.path.join(working_dir, out_file + '.json')
-    print('Saving to: ' + save_path)
+    save_path = os.path.join(working_dir, out_file)
     write_json(save_path, users)
 
 def main():
     # set up the command line arguments
-    parser = argparse.ArgumentParser(description='Get twitter user ids and their follower ids from Tweepy and save in different formats')
+    parser = argparse.ArgumentParser(description='Get twitter user ids and their follower ids using Tweepy and save in different formats')
     subparsers = parser.add_subparsers(dest='mode')
 
     search_parser = subparsers.add_parser('search', help='Gather Twitter user ids by city, state and radius')
@@ -208,7 +214,7 @@ def main():
         	return
 
         # gets the followers of all the retrieved user ids 'depth' number of times
-        traverse_user_followers(args.depth, twpy_api, working_dir, args.filename, user_ids)
+        collect_user_followers(args.depth, twpy_api, working_dir, args.filename, user_ids)
 
     if args.mode == 'search':
         twpy_api = auth.get_access_creds(args.creds)
@@ -219,14 +225,9 @@ def main():
 
         working_dir = get_directory_of_file(args.filename)
 
-        city = args.city
-        state = args.state
-        search_radius = args.radius
-        search_filename = args.filename + '.json'
-
         # gets the first 50 zip codes by city and state
         zip_search = SearchEngine()
-        zipcodes = zip_search.by_city_and_state(city, state, returns=50)
+        zipcodes = zip_search.by_city_and_state(args.city, args.state, returns=50)
 
         user_ids = []
         user_followers = []
@@ -234,10 +235,8 @@ def main():
         bar = pyprind.ProgPercent(len(zipcodes), track_time=True, title='Finding user ids')
         for zipcode in zipcodes:
             bar.update(item_id='zip code:' + str(zipcode.zipcode) + '\t')
-            latitude = zipcode.lat
-            longitude = zipcode.lng
-            user_ids.extend(get_user_ids(twpy_api, latitude, longitude, search_radius))
-            write_json(os.path.join(working_dir, 'users.json'), list(set(user_ids)))
+            user_ids.extend(get_user_ids(twpy_api, zipcode.lat, zipcode.lng, args.radius))
+            write_json(args.filename, list(set(user_ids)))
 
     if args.mode == 'netx':
         user_followers = read_json(args.in_filename)

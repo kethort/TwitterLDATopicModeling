@@ -15,7 +15,7 @@ import argcomplete
 ''' a topology of twitter users is found based on follower relationships. networkx was used to
     find maximal cliques and discover communities derived from a clique based on set number of
     "friends" to associate with. An example of what's in a topology file is in the img directory
-    of project '''
+    of the project '''
 
 def get_tweets(user_id, twpy_api, num_tweets):
     # try to get all of the tweets from the user's timeline

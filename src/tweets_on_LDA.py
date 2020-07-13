@@ -79,9 +79,9 @@ def community_document_vectors(doc_vecs, community):
         except:
             pass
     return comm_doc_vecs
-
+ 
 def main():
-    # this program uses an LDA model to compare against 'documents' and outputs a json file containing {user: [topic probability distribution vector]} results
+    # this program uses an LDA model to vectorize 'documents' and outputs a json file containing {user: [topic probability distribution vector]} results
     # it also creates the directories for the communities generated from the topology file, putting each community document vectors json file in corresponding directory
     parser = argparse.ArgumentParser(description='Create a corpus from a collection of tweets and/or build an LDA model')
     parser.add_argument('-t', '--topology_file', required=True, action='store', dest='top_file', help='Location of topology file')
@@ -115,7 +115,7 @@ def main():
     except:
         document_vectors = {}
 
-    # calls get_document_vectors function using multiprocessing
+    # use multiprocessing to query document vectors
     pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
     func = partial(get_document_vectors,
                    tweets_dir=args.unseen_docs,
