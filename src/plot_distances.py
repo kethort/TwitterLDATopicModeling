@@ -119,6 +119,7 @@ def calculate_aggregated_community_distances(median, internal, community):
         else:
             out_file = os.path.join(distance_dir, 'mean_ext_community_distances')
 
+    if not os.path.exists(jsd_dists): return
     if os.path.exists(out_file): os.remove(out_file)
 
     comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
@@ -200,7 +201,8 @@ def user_distance_difference_graphs(community):
     # all plotted data is separated into community directories
 
     comm_doc_vecs = open_community_document_vectors_file(os.path.join(community, 'community_doc_vecs.json'))
-    if(len(comm_doc_vecs) <= 1): return
+    
+    if(len(comm_doc_vecs) <= 2): return
 
     out_path = os.path.join(community, 'distance_difference_graphs/jensen_shannon/')
 
@@ -213,23 +215,27 @@ def user_distance_difference_graphs(community):
     ext_df = pd.read_csv(ext_dists, sep='\t', header=None, names=['user_a', 'user_b', 'distance'])
     
     for user in comm_doc_vecs:
-        df = int_df[(int_df.user_a == int(user)) | (int_df.user_b == int(user))]
-        y_axis = df['distance'].tolist()
-        plt.plot(np.arange(0, len(y_axis)), y_axis, 'b')
-        df = ext_df[ext_df.user_a == int(user)]
-        y_axis = df['distance'].tolist()
-        plt.plot(np.arange(0, len(y_axis)), y_axis, 'g')
-        plt.ylabel('Divergence')
-        plt.title('Divergence from ' + user + ' to Internal & External Users')
-        plt.ylim([0, np.log(2)])
-        plt.xlabel('Users')
-        plt.xlim([0, len(y_axis) - 1])
-        plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
-        plt.locator_params(axis ='x', nbins=len(y_axis) - 1)
-        plt.locator_params(axis ='y', nbins=10)
-        plt.subplots_adjust(bottom=0.2)
-        plt.savefig(out_path + user)
-        plt.close()
+        try:
+            df = int_df[(int_df.user_a == int(user)) | (int_df.user_b == int(user))]
+            y_axis = df['distance'].tolist()
+            plt.plot(np.arange(0, len(y_axis)), y_axis, 'b')
+            df = ext_df[ext_df.user_a == int(user)]
+            y_axis = df['distance'].tolist()
+            plt.plot(np.arange(0, len(y_axis)), y_axis, 'g')
+            plt.ylabel('Divergence')
+            plt.title('Divergence from ' + user + ' to Internal & External Users')
+            plt.ylim([0, np.log(2)])
+            plt.xlabel('Users')
+            plt.xlim([0, len(y_axis) - 1])
+            plt.legend(['Internal', 'External'], loc='center', bbox_to_anchor=(0.5, -0.18), ncol=2)
+            plt.locator_params(axis ='x', nbins=len(y_axis) - 1)
+            plt.locator_params(axis ='y', nbins=10)
+            plt.subplots_adjust(bottom=0.2)
+            plt.savefig(out_path + user)
+            plt.close()
+        
+        except Exception as e:
+            pass
 
 def draw_dual_line_graph(title, x_label, y_label, y_axis_1, y_axis_2, line_1_label, line_2_label, output_path):
     x_axis = np.arange(0, len(y_axis_1))
@@ -341,7 +347,7 @@ def main():
     clean_parser.add_argument('-w', '--working_dir', required=True, action='store', dest='working_dir', help='This is the directory with community graph and distance data')
     clean_parser.add_argument('-f', '--tweets_dir', required=True, action='store', dest='tweets_dir', help='This is the directory where tweets were downloaded to')
     clean_parser.add_argument('-o', action='store_true', required=True, help='Omit inactive communities from calculations/graphs')
-    clean_parser.add_argument('-z', '--comm_size', nargs='?', type=int, const=1, default=3, help='Minimum size a clique or community should be to stay in dataset. Default = 3')
+    clean_parser.add_argument('-z', '--comm_size', nargs='?', type=int, const=1, default=2, help='Minimum size a clique or community should be to stay in dataset. Default = 2')
 
     indiv_parser = subparsers.add_parser('indiv', help='Caculate and graph individual internal or external user distances')
     indiv_parser.add_argument('-w', '--working_dir', required=True, action='store', dest='working_dir', help='This is the directory to output data to')
@@ -420,6 +426,7 @@ def main():
             print('Building dataframe...')
             func = partial(build_aggregated_dataframe, args.median, True)
             result = pool.map(func, dir_to_iter(args.working_dir))
+            result = [i for i in result if i]
             metric = 'median' if args.median else 'mean'
             pd.DataFrame(result).to_csv(os.path.join(args.working_dir, metric + '_aggregated_community_distances'), sep='\t', header=None, index=None)
         
@@ -430,6 +437,7 @@ def main():
             print('Building dataframe...')
             func = partial(build_aggregated_dataframe, args.median, False)
             result = pool.map(func, dir_to_iter(args.working_dir))
+            result = [i for i in result if i]
             metric = 'median' if args.median else 'mean'
             pd.DataFrame(result).to_csv(os.path.join(args.working_dir, metric + '_ext_aggregated_community_distances'), sep='\t', header=None, index=None)
 
