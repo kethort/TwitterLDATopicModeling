@@ -13,6 +13,8 @@ from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords
 import gensim
 from gensim import utils, corpora, models
+import io
+
 ignore_words = set(stopwords.words('english'))
 
 ''' from the model that was created, you can calculate the topic probability distribution of unseen documents.
@@ -28,7 +30,7 @@ def write_topn_words(output_dir, lda):
             json.dump(topn_words, outfile, sort_keys=True, indent=4)
 
 def preprocess_tweet(document, lemma):
-    with open(document, 'r') as infile:
+    with io.open(document, 'r', encoding="utf-8") as infile:
         text = ' '.join(line.rstrip('\n') for line in infile)
     # convert string into unicode
     text = gensim.utils.any2unicode(text)
@@ -50,6 +52,7 @@ def get_document_vectors(user_id, **kwargs):
         tweetpath = kwargs['tweets_dir'] + user_id
     else:
         return
+
     if not user_id in kwargs['document_vectors']:
         document = preprocess_tweet(tweetpath, kwargs['lemma'])
         # if after preprocessing, the list is empty, then skip that user
@@ -79,6 +82,13 @@ def community_document_vectors(doc_vecs, community):
         except:
             pass
     return comm_doc_vecs
+
+def read_json(file_name):
+    try:
+        with open(file_name, 'r') as comm_doc_vecs_file:
+            return json.load(comm_doc_vecs_file)
+    except:
+        return {}
  
 def main():
     # this program uses an LDA model to vectorize 'documents' and outputs a json file containing {user: [topic probability distribution vector]} results

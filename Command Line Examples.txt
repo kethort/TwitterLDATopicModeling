@@ -2,7 +2,7 @@
 python twitter_user_grabber.py search -c "Newport Beach" -s California -r 100mi -f ../Output/twitter_geo_searches/test_cliques -z ../twitter_dev_accounts -d 2
 
 # get_community_tweets:
-python get_community_tweets.py -t ../Output/twitter_geo_searches/test_cliques.json -c ../twitter_dev_accounts -o ../Output/dnld_tweets/
+python get_community_tweets.py -f ../Output/twitter_geo_searches/filename.json -c ../twitter_dev_accounts -o ../Output/dnld_tweets/ -n 25
 
 # create the corpus/dict from wiki dump
 python create_LDA_model.py wiki -w ../Output/Model\ and\ Corpus/simplewiki-latest-pages-articles.xml.bz2 -c ../Output/Model\ and\ Corpus/wiki_corpus
