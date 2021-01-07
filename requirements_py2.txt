@@ -28,7 +28,7 @@ Jinja2==2.11.2
 jmespath==0.10.0
 joblib==0.14.1
 kiwisolver==1.1.0
-lxml==4.5.1
+lxml==4.6.2
 MarkupSafe==1.1.1
 matplotlib==2.2.5
 more-itertools==5.0.0
