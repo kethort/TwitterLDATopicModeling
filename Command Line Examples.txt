@@ -1,5 +1,5 @@
 # twitter_user_grabber.py (search):
-python twitter_user_grabber.py search -c "Newport Beach" -s California -r 100mi -f ../Output/twitter_geo_searches/test_cliques -z ../twitter_dev_accounts -d 2
+python twitter_user_grabber.py search -c "Newport Beach" -s California -r 100mi -f ../Output/twitter_geo_searches/test_cliques -z ../twitter_dev_accounts
 
 # get_community_tweets:
 python get_community_tweets.py -f ../Output/twitter_geo_searches/filename.json -c ../twitter_dev_accounts -o ../Output/dnld_tweets/ -n 25

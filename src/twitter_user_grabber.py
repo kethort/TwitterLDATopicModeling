@@ -104,16 +104,19 @@ def get_directory_of_file(filename):
     return working_dir
 
 def get_user_ids(twpy_api, latitude, longitude, radius):
-    tweets = []
+    import tweepy
+    users = []
 
     for i in range(0, MAX_QUERIES):
         try:
-            tweet_batch = twpy_api.search(q="*", rpp=1, geocode="%s,%s,%s" % (latitude, longitude, radius))
-            tweets.extend(tweet_batch)
+            geo_str = '{0},{1},{2}'.format(latitude, longitude, radius)
+            tweets = twpy_api.search(q="*", geocode=geo_str)
+            users.extend([tweet.author.id for tweet in tweets])
+            users = list(set(users))
         except Exception as e:
             print(e)
 
-    return [tweet.author.id for tweet in tweets]
+    return users
 
 def get_user_followers(twpy_api, working_dir, filename, user_ids):
     # returns the followers of each user {user: [followers]} and also updates/returns user ids
@@ -215,10 +218,10 @@ def main():
 
         # gets the first 50 zip codes by city and state
         zip_search = SearchEngine()
-        zipcodes = zip_search.by_city_and_state(args.city, args.state, returns=50)
+        zipcodes = zip_search.by_city_and_state(args.city, args.state)
+        #print(len(zipcodes))
 
         user_ids = []
-        user_followers = []
         # gets the user ids at each geo-location for the retrieved zip codes
         bar = pyprind.ProgPercent(len(zipcodes), track_time=True, title='Finding user ids')
         for zipcode in zipcodes:
