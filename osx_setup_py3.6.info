@@ -8,6 +8,6 @@ python3 get-pip.py
 
 pip install virtualenv
 
-# stopword list using nltk brown corpora 
+# stopword list using nltk  
 python patches/nltk_downloads.py
 cp patches/english ~/nltk_data/corpora/stopwords

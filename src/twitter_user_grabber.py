@@ -7,66 +7,59 @@ import multiprocessing
 from functools import partial
 import matplotlib.pyplot as plt
 import requests
-import networkx as nx 
+import networkx as nx
 import ast
 from networkx.algorithms import community
 from networkx.readwrite import json_graph
+from networkx.algorithms.community import k_clique_communities
 from uszipcode import SearchEngine, SimpleZipcode, Zipcode
 import pyprind
 import logging
 import argparse
 import argcomplete
 
-''' Example script for getting twitter user topology by location '''
+''' Script for getting twitter user topology by location '''
 
 MAX_QUERIES = 200
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.CRITICAL)
 
-def get_user_ids(twpy_api, latitude, longitude, radius):
-    tweets = []
-
-    for i in range(0, MAX_QUERIES):
-        try:
-            tweet_batch = twpy_api.search(q="*", rpp=1, geocode="%s,%s,%s" % (latitude, longitude, radius))
-            tweets.extend(tweet_batch)
-        except Exception as e:
-            print(e)
-
-    return [tweet.author.id for tweet in tweets]
-
-def get_user_followers(twpy_api, user_ids):
-    # returns the followers of each user {user: [followers]} and also updates/returns user ids
-    followers = user_ids
-    user_followers = {}
-    bar = pyprind.ProgPercent(len(user_ids), track_time=True, title='Finding user followers') 
-    for user in user_ids:
-        bar.update(item_id=str(user) + '\t')
-        try: # protected tweets or user doesn't exist
-            user_followers[user] = twpy_api.followers_ids(id=user)
-            followers.extend(user_followers[user])
-        except:
-            print("Skipping user: " + str(user))
-
-    return set(followers), user_followers
-
-def save_user_follower_networkx_graph(user_followers, filename):
-    # create networkx graph from dictionary where the nodes are the keys
-    # and the edges are the values <list>
+def build_netx_graph(user_followers):
+	# generates a networkx graph from a dictionary containing users and their followers 
+    print('Building networkx graph from user followers dictionary')
     graph = nx.Graph()
-
     graph.add_nodes_from(user_followers.keys())
 
     for k, v in user_followers.items():
-        graph.add_edges_from(([(k, t) for t in v]))
-   
-    # serialize the graph to disk
-    data = json_graph.node_link_data(graph)
+        graph.add_edges_from(([(int(k), t) for t in v]))
+
+    return graph
+
+def generate_cliques(graph, filename, min_size=4):
+    # generates a topology of maximal cliques from a given networkx graph
+    # this process eats up lots of memory and takes a long to complete on very large datasets
+    print('Generating cliques from networkx graph')
+    data = []
+
+    for clique in nx.find_cliques(graph):
+        if len(list(clique)) > min_size:
+        	data.extend([list(clique)])
 
     with open(filename, 'w') as output:
-        json.dump(data, output, sort_keys=True, indent=4)
+        for clique in data:
+            output.write(str(clique) + '\n')
 
-def gather_cliques(clique):
-    return clique
+
+def generate_communities(graph, filename, min_size=6):
+	# generates a topology of communities from a given networkx graph
+    print('Generating communities from networkx graph')
+    data = []
+
+    for community in k_clique_communities(graph, min_size):
+    	data.extend([list(community)])
+
+    with open(filename, 'w') as output:
+    	for community in data:
+            output.write(str(community) + '\n')
 
 def open_nx_graph(filename):
     data = {}
@@ -74,6 +67,23 @@ def open_nx_graph(filename):
         data = json.load(graph_data)
 
     return json_graph.node_link_graph(data)
+
+def pythonify_dict(data):
+    # converts all keys in a dictionary to integers
+    output = {}
+
+    for k in data:
+        value = data[k]
+        try:
+            newkey = int(k)
+            k = newkey
+        except Exception as e:
+            print(str(e))
+            pass
+
+        output[k] = value
+
+    data = output
 
 def read_json(filename):
     try:
@@ -84,7 +94,7 @@ def read_json(filename):
 
 def write_json(filename, data):
     with open(filename, 'w') as outfile:
-        json.dump(data, outfile, sort_keys=True, indent=4)
+        json.dump(data, outfile, sort_keys=True)
 
 def get_directory_of_file(filename):
     filename_loc = len(filename.strip('/').split('/')) - 1
@@ -93,128 +103,165 @@ def get_directory_of_file(filename):
 
     return working_dir
 
+def get_user_ids(twpy_api, latitude, longitude, radius):
+    import tweepy
+    users = []
+
+    for i in range(0, MAX_QUERIES):
+        try:
+            geo_str = '{0},{1},{2}'.format(latitude, longitude, radius)
+            tweets = twpy_api.search(q="*", geocode=geo_str)
+            users.extend([tweet.author.id for tweet in tweets])
+            users = list(set(users))
+        except Exception as e:
+            print(e)
+
+    return users
+
+def get_user_followers(twpy_api, working_dir, filename, user_ids):
+    # returns the followers of each user {user: [followers]} and also updates/returns user ids
+    user_followers = {}
+    bar = pyprind.ProgPercent(len(user_ids), track_time=True, title='Finding user followers')
+    for user in user_ids:
+        bar.update(item_id=str(user) + '\t')
+        try: # protected tweets or user doesn't exist
+            user_followers[user] = twpy_api.followers_ids(id=user)
+        except Exception as e:
+            print("Skipping user: " + str(user))
+        else:
+            current_followers = read_json(os.path.join(working_dir, filename + '.json'))
+            # this conditional handles the first time that the file is written to
+            if isinstance(current_followers, dict):
+                current_followers[str(user)] = user_followers[user]
+                write_json(os.path.join(working_dir, filename), current_followers)
+            else:
+                write_json(os.path.join(working_dir, filename), user_followers)
+
+    return user_followers
+
+def collect_user_followers(depth, twpy_api, working_dir, filename, user_ids):
+    # the depth value is how far into the user follower relationship to collect user followers
+    # if n == 2 then the list of users will grow by two times the depth of the amount of followers collected 
+    # and the entire collection of those users followers will compose the resulting dictionary
+    for i in range(0, int(depth)):
+        user_followers = get_user_followers(twpy_api, working_dir, filename, set(user_ids))
+
+        # update the list of user_ids to include the followers 
+        for user in user_followers:
+            user_ids.extend(user_followers[user])
+
+        write_json(filename + '-users', list(set(user_ids)))
+        write_json(os.path.join(working_dir, filename), user_followers)
+
+def convert_followers_to_users(input_file, out_file, working_dir):
+    # flattens a dictionary of {user: [followers]} into a single list of users
+    print('Converting user followers to users')
+    user_followers = read_json(input_file)
+    users = []
+
+    for k, v in user_followers.items():
+        users.extend(k)
+        users.extend(t for t in v)
+
+    users = list(set(users))
+
+    save_path = os.path.join(working_dir, out_file)
+    write_json(save_path, users)
+
 def main():
-    search_dir = 'twitter_geo_searches/'
-    if not os.path.exists(os.path.dirname(search_dir)):
-        os.makedirs(os.path.dirname(search_dir), 0o755)
-
-    pool = multiprocessing.Pool(max(1, multiprocessing.cpu_count() - 1))
-
-    # set up the command line arguments
-    parser = argparse.ArgumentParser(description='Get twitter user ids and their follower ids from Tweepy and save in different formats')
+    ''' 
+        if running the program from start to finish the process should be
+            
+            1. search - collect user ids from twitter by location
+            2. getfws - get followers of each collected user
+            3. netx - generate a file containing the cliques or communities generated from user:[follower] key value pairs
+    '''
+    parser = argparse.ArgumentParser(description='Get twitter user ids and their follower ids using Tweepy and save in different formats')
     subparsers = parser.add_subparsers(dest='mode')
-    
-    search_parser = subparsers.add_parser('search', help='Gather Twitter user ids and followers by city, state and radius')
+
+    search_parser = subparsers.add_parser('search', help='Gather Twitter user ids by city, state and radius')
     search_parser.add_argument('-c', '--city', required=True, action='store', dest='city', help='City to search for Twitter user ids. REQUIRED')
-    search_parser.add_argument('-s', '--state', required=True, action='store', dest='state', help='State to search for Twitter user ids. REQUIRED')   
-    search_parser.add_argument('-r', '--radius', required=True, action='store', dest='radius', help='Radius to search Twitter API for user ids (miles or kilometers -- ex: 50mi or 50km). REQUIRED')   
-    search_parser.add_argument('-d', '--depth', required=True, action='store', dest='depth', help='This value represents how far to traverse into user follower relationships when searching for followers. REQUIRED')
-    search_parser.add_argument('-f', '--filename', required=True, action='store', dest='filename', help='Name of output file for networkx graph data. REQUIRED')   
-    search_parser.add_argument('-z', '--creds', required=True, action='store', dest='creds', help='Path to Twitter developer access credentials REQUIRED')   
-    
-    continue_parser = subparsers.add_parser('getfws', help='Takes in already gathered jsonified list of users and retrieves their followers')
+    search_parser.add_argument('-s', '--state', required=True, action='store', dest='state', help='State to search for Twitter user ids. REQUIRED')
+    search_parser.add_argument('-r', '--radius', required=True, action='store', dest='radius', help='Radius to search Twitter API for user ids (miles or kilometers -- ex: 50mi or 50km). REQUIRED')
+    search_parser.add_argument('-f', '--filename', required=True, action='store', dest='filename', help='Name of output file to store gathered users in. REQUIRED')
+    search_parser.add_argument('-z', '--creds', required=True, action='store', dest='creds', help='Path to Twitter developer access credentials REQUIRED')
+
+    continue_parser = subparsers.add_parser('getfws', help='Loads a list of users and retrieves their followers. This function will take a long time if the depth is set too high.')
     continue_parser.add_argument('-f', '--filename', action='store', help='Filename of the previously saved Twitter users ids in .json format')
     continue_parser.add_argument('-d', '--depth', required=True, action='store', dest='depth', help='This value represents how far to traverse into user follower relationships when searching for followers. REQUIRED')
-    continue_parser.add_argument('-z', '--creds', required=True, action='store', dest='creds', help='Path to Twitter developer access credentials REQUIRED')   
+    continue_parser.add_argument('-z', '--creds', required=True, action='store', dest='creds', help='Path to Twitter developer access credentials REQUIRED')
 
-    netx_parser = subparsers.add_parser('netx', help='Perform operations on already generated networkx graph')
-    netx_parser.add_argument('-q', '--clique', action='store_true', help='Find cliques with networkx')
-    netx_parser.add_argument('-x', '--clq_filename', action='store', help='Provide a filename for the serialized output of find_cliques')
-    netx_parser.add_argument('-g', '--graph_filename', required=True, action='store', dest='graph_filename', help='Networkx input data filename. REQUIRED')   
-    netx_parser.add_argument('-o', '--out_filename', required=True, action='store', dest='out_filename', help='Networkx output data filename REQUIRED')      
-    netx_parser.add_argument('-k', '--comm', action='store_true', help='Find communities with networkx')
-    netx_parser.add_argument('-p', '--print_graph', action='store_true', help='Print networkx graph')
+    convert_parser = subparsers.add_parser('convert', help='Convert user followers dict to users list and save file. This is the file format used when continuing the get followers function in get_community_tweets.py')
+    convert_parser.add_argument('-i', '--input_file', action='store', help='Filename of the previously saved followers dictionary')
+    convert_parser.add_argument('-o', '--out_file', action='store', help='Filename to store the output. Just the filename no path is needed. The output file will be saved in the folder of the input file')
+
+    netx_parser = subparsers.add_parser('netx', help='Create cliques or communities from user follower data. '
+                                                     'This function will output the necessary topology file for the tweets_on_LDA.py script.')
+    group = netx_parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-q', '--gen_cliques', required=False, action='store_true', dest='gen_cliques', help='Generate cliques from user followers dictionary')
+    group.add_argument('-c', '--gen_comms', required=False, action='store_true', dest='gen_comms', help='Generate communities from user followers dictionary')
+    netx_parser.add_argument('-n', '--min_size', action='store', dest='min_size', nargs='?', type=int, const=1, default=4, help='Constraint for min size of clique or community (default is 4)')
+    netx_parser.add_argument('-i', '--in_filename', required=True, action='store', dest='in_filename', help='User followers dictionary file REQUIRED')
+    netx_parser.add_argument('-o', '--out_filename', required=True, action='store', dest='out_filename', help='Output topology filename REQUIRED')
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    
-    if not args.mode:
-        print('ERROR: No arguments provided. Use -h or --help for help')
-        return
-
-    if args.mode == 'getfws':
-        twpy_api = auth.get_access_creds(args.creds)  
-        working_dir = get_directory_of_file(args.filename)
-
-        if not twpy_api:
-            print('Error: Twitter developer access credentials denied')
-            return
-
-        user_ids = read_json(args.filename)
-        if not user_ids: return
-
-        for i in range(0, int(args.depth)):
-            user_ids, user_followers = get_user_followers(twpy_api, set(user_ids))
-            write_json(os.path.join(args.filename), list(set(user_ids)))
-            write_json(os.path.join(args.filename), list(set(user_followers)))
-
 
     if args.mode == 'search':
-        working_dir = get_directory_of_file(args.filename)
-        
-        city = args.city
-        state = args.state
-        search_radius = args.radius
-        search_filename = args.filename + '.json'
-        twpy_api = auth.get_access_creds(args.creds)  
+        twpy_api = auth.get_access_creds(args.creds)
 
         if not twpy_api:
             print('Error: Twitter developer access credentials denied')
             return
+
+        working_dir = get_directory_of_file(args.filename)
 
         # gets the first 50 zip codes by city and state
         zip_search = SearchEngine()
-        zipcodes = zip_search.by_city_and_state(city, state, returns=50)
+        zipcodes = zip_search.by_city_and_state(args.city, args.state)
+        #print(len(zipcodes))
 
         user_ids = []
-        user_followers = []
         # gets the user ids at each geo-location for the retrieved zip codes
-        bar = pyprind.ProgPercent(len(zipcodes), track_time=True, title='Finding user ids') 
+        bar = pyprind.ProgPercent(len(zipcodes), track_time=True, title='Finding user ids')
         for zipcode in zipcodes:
             bar.update(item_id='zip code:' + str(zipcode.zipcode) + '\t')
-            latitude = zipcode.lat
-            longitude = zipcode.lng
-            user_ids.extend(get_user_ids(twpy_api, latitude, longitude, search_radius))
-            write_json(os.path.join(working_dir, 'users.json'), list(set(user_ids)))
-           
-        # gets the followers of all the retrieved user ids n number of depths
-        for i in range(0, int(args.depth)):
-            user_ids, user_followers = get_user_followers(twpy_api, set(user_ids))
-        
-        filename = os.path.join(search_dir, search_filename)
-        save_user_follower_networkx_graph(user_followers, filename)
+            user_ids.extend(get_user_ids(twpy_api, zipcode.lat, zipcode.lng, args.radius))
+            write_json(args.filename, list(set(user_ids)))
+   
+    if args.mode == 'getfws':
+        twpy_api = auth.get_access_creds(args.creds)
+
+        if not twpy_api:
+            print('Error: Twitter developer access credentials denied')
+            return
+
+        working_dir = get_directory_of_file(args.filename)
+
+        user_ids = read_json(args.filename)
+        if not user_ids:
+        	print('Error: No users found in provided file')
+        	return
+
+        # gets the followers of all the retrieved user ids 'depth' number of times
+        collect_user_followers(args.depth, twpy_api, working_dir, args.filename, user_ids)
 
     if args.mode == 'netx':
-        graph_filename = os.path.join(search_dir, args.graph_filename + '.json')
-        output_filename = os.path.join(search_dir, args.out_filename + '.json')
-        graph = open_nx_graph(graph_filename)
-        cliques = []
+        working_dir = get_directory_of_file(args.in_filename)
+        user_followers = read_json(args.in_filename)
+        pythonify_dict(user_followers)
+        print("Number of followers: " + str(len(user_followers)))
+        output_filename = os.path.join(working_dir, args.out_filename + '.json')
+        graph = build_netx_graph(user_followers)
 
-        if args.clique: 
-            for clique in pool.map(gather_cliques, nx.find_cliques(graph)):
-                cliques.append([int(member) for member in clique])
+        if args.gen_cliques:
+            generate_cliques(graph, output_filename, args.min_size)
+        if args.gen_comms:
+            generate_communities(graph, output_filename, args.min_size)
 
-            with open(output_filename, 'w') as output:
-                for clique in cliques:
-                    output.write('%s,\n' % (clique))
-
-        elif args.comm:
-            if args.clq_filename:
-                clique_filename = os.path.join(search_dir, args.clq_filename + '.json')
-                # load the clique topology file
-                with open(clique_filename, 'r') as find_cliques_file:
-                    cliques = [clique for cliques in find_cliques_file for clique in ast.literal_eval(cliques)]
-
-            with open(output_filename, "w") as output:  
-                for node in pool.map(gather_cliques, community.girvan_newman(graph)):
-                    print(node)
-                    #output.write(str([int(item) for item in node]) + ', \n')      
-        elif args.print_graph: 
-            nx.draw(graph)
-            plt.show()     
-
-
-    print("Job complete")
+    if args.mode == 'convert':
+        working_dir = get_directory_of_file(args.input_file)
+        convert_followers_to_users(args.input_file, args.out_file, working_dir)
 
 if __name__ == '__main__':
     sys.exit(main())

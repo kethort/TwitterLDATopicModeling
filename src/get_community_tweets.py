@@ -11,19 +11,20 @@ import oauth_handler as auth
 import matplotlib.pyplot as plt
 import argparse
 import argcomplete
+import io
 
 ''' a topology of twitter users is found based on follower relationships. networkx was used to
     find maximal cliques and discover communities derived from a clique based on set number of
     "friends" to associate with. An example of what's in a topology file is in the img directory
-    of project '''
+    of the project '''
 
-def get_tweets(user_id, twpy_api):
+def get_tweets(user_id, twpy_api, num_tweets):
     # try to get all of the tweets from the user's timeline
     # if there is an error move on, tweets will be empty and user will be added to inactive
     tweets = []
 
     try:
-        for page in tweepy.Cursor(twpy_api.user_timeline, user_id).items():
+        for page in tweepy.Cursor(twpy_api.user_timeline, user_id).items(num_tweets):
             tweets.append(page.text)
 
     except tweepy.TweepError as e:
@@ -32,24 +33,22 @@ def get_tweets(user_id, twpy_api):
     return tweets
 
 def user_status_count(user_id, twpy_api):
+    count = 0
     try:
         user = twpy_api.get_user(user_id=user_id)
         if(user.statuses_count):
             count = user.statuses_count
 
     except tweepy.TweepError as e:
-        count = 0
+        pass
 
     finally:
         return count
 
 def write_tweets(tweets, tweet_filename):
-    with open(tweet_filename, 'w') as user_tweets:
+    with io.open(tweet_filename, 'w', encoding="utf-8") as user_tweets:
         for tweet in tweets:
-            if (int(sys.version.split('.')[0]) < 3): # python version less than 3
-            	user_tweets.write(tweet.encode('utf-8') + '\n')
-            else:
-                user_tweets.write(tweet + '\n')
+            user_tweets.write(tweet + '\n')
 
 def read_json(file_name):
     try:
@@ -72,9 +71,10 @@ def main():
 
     # script can be stopped and started in the middle of running it without losing progress
     parser = argparse.ArgumentParser(description='Get tweets of all twitter user ids in the provided topology file')
-    parser.add_argument('-t', '--topology_file', required=True, action='store', dest='top_file', help='Location of topology file')
+    parser.add_argument('-f', '--users_file', required=True, action='store', dest='users_file', help='Location of file with user ids')
     parser.add_argument('-c', '--dev_creds', required=True, action='store', dest='dev_creds', help='Location of file containing Twitter developer access credentials')
     parser.add_argument('-o', '--output_dir', required=True, action='store', dest='output_dir', help='Name of the directory you want to download Tweets to')
+    parser.add_argument('-n', '--num_tweets', action='store', dest='num_tweets', nargs='?', type=int, const=1, default=3200, help='Number of tweets to download from user (default is 3200)')
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
@@ -92,9 +92,8 @@ def main():
         print('Error: Twitter developer access credentials denied')
         return
 
-    # put every single user (non repeating) from the topology file into a set
-    with open(args.top_file, 'r') as inp_file:
-        comm_set = set(user for community in inp_file for user in ast.literal_eval(community.replace('],', ']')))
+    # open the lists of user ids. this file should already be a non-repeating set
+    comm_set = set(read_json(args.users_file))
 
     # download tweets for every single user in the set
     # separate active users from inactive users based on status count and availability
@@ -119,7 +118,7 @@ def main():
             write_json(tweets_dir, active_users, inactive_users)
             continue
 
-        tweets = get_tweets(user, twpy_api)
+        tweets = get_tweets(user, twpy_api, args.num_tweets)
 
         if tweets:
             tweet_filename = os.path.join(tweets_dir, str(user))
