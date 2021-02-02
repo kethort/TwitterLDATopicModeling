@@ -142,10 +142,7 @@ def main():
         doc_corpus.dictionary.save(args.corp_loc + '.dict')
 
     if args.mode == 'wiki':
-        if args.lemma:
-            wiki_corpus = WikiCorpus(args.wiki_loc, lemmatize=True, tokenizer_func=wiki_tokenizer, article_min_tokens=100, token_min_len=3, token_max_len=15)
-        else:
-            wiki_corpus = WikiCorpus(args.wiki_loc, lemmatize=False, tokenizer_func=wiki_tokenizer, article_min_tokens=100, token_min_len=3, token_max_len=15)
+        wiki_corpus = WikiCorpus(args.wiki_loc, lemmatize=args.lemma, tokenizer_func=wiki_tokenizer, article_min_tokens=100, token_min_len=3, token_max_len=15)
 
         wiki_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
