@@ -4,8 +4,8 @@ python twitter_user_grabber.py search -c "Newport Beach" -s California -r 100mi 
 # get_community_tweets:
 python get_community_tweets.py -f ../Output/twitter_geo_searches/filename.json -c ../twitter_dev_accounts -o ../Output/dnld_tweets/ -n 25
 
-# create the corpus/dict from wiki dump
-python create_LDA_model.py wiki -w ../Output/Model\ and\ Corpus/simplewiki-latest-pages-articles.xml.bz2 -c ../Output/Model\ and\ Corpus/wiki_corpus
+# create the corpus/dict from wiki dump with lemmatization
+python create_LDA_model.py wiki -w ../Output/model_and_corpus/simplewiki-latest-pages-articles.xml.bz2 -c ../Output/model_and_corpus/test_corpus -m
 
 # create the lda model from the corpus and dictionary (num topics is set to 50 and num passes is 5)
 python create_LDA_model.py lda -c ../Output/Model\ and\ Corpus/wiki_corpus.mm -d ../Output/Model\ and\ Corpus/wiki_corpus.dict -n 50 -p 5 -l ../Output/Model\ and\ Corpus/lda_model
