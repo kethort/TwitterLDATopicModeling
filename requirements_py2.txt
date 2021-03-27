@@ -24,7 +24,7 @@ futures==3.3.0
 gensim==3.8.3
 idna==2.10
 importlib-metadata==1.7.0
-Jinja2==2.11.2
+Jinja2==2.11.3
 jmespath==0.10.0
 joblib==0.14.1
 kiwisolver==1.1.0
