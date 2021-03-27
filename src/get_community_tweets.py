@@ -94,6 +94,7 @@ def main():
 
     # open the lists of user ids. this file should already be a non-repeating set
     comm_set = set(read_json(args.users_file))
+    print(comm_set)
 
     # download tweets for every single user in the set
     # separate active users from inactive users based on status count and availability

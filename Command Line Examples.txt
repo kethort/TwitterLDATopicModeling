@@ -8,14 +8,14 @@ python get_community_tweets.py -f ../Output/twitter_geo_searches/filename.json -
 python create_LDA_model.py wiki -w ../Output/model_and_corpus/simplewiki-latest-pages-articles.xml.bz2 -c ../Output/model_and_corpus/test_corpus -m
 
 # create the lda model from the corpus and dictionary (num topics is set to 50 and num passes is 5)
-python create_LDA_model.py lda -c ../Output/Model\ and\ Corpus/wiki_corpus.mm -d ../Output/Model\ and\ Corpus/wiki_corpus.dict -n 50 -p 5 -l ../Output/Model\ and\ Corpus/lda_model
+python create_LDA_model.py lda -c ../Output/model_and_corpus/wiki_corpus.mm -d ../Output/model_and_corpus/wiki_corpus.dict -n 50 -p 5 -l ../Output/model_and_corpus/lda_model
 
 # create ldaVis html file from the model
-python create_LDA_model.py ldavis -c ../Output/Model\ and\ Corpus/wiki_corpus.mm -d ../Output/Model\ and\ Corpus/wiki_corpus.dict -l ../Output/Model\ and\ Corpus/lda_model.model
+python create_LDA_model.py ldavis -c ../Output/model_and_corpus/wiki_corpus.mm -d ../Output/model_and_corpus/wiki_corpus.dict -l ../Output/model_and_corpus/lda_model.model
 
 # uses the tweets of each user to get document vectors from the lda model and puts the vectors in files/folders for each community
-python tweets_on_LDA.py -t ../Output/twitter_geo_searches/test_cliques.json -p clique -w ../Output/Graphs\ and\ Data/ -l ../Output/Model\ and\ Corpus/lda_model.model -d ../Output/Model\ and\ Corpus/wiki_corpus.dict -u ../Output/dnld_tweets/
+python tweets_on_LDA.py -t ../Output/twitter_geo_searches/test_cliques.json -p clique -w ../Output/graphs_and_data/ -l ../Output/model_and_corpus/lda_model.model -d ../Output/model_and_corpus/wiki_corpus.dict -u ../Output/dnld_tweets/
 
 # plots the data from the result of running tweets_on_LDA.py
-python plot_distances.py indiv -w ../Output/Graphs\ and\ Data/ -i
+python plot_distances.py indiv -w ../Output/graphs_and_data/ -i
 
