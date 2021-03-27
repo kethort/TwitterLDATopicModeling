@@ -143,11 +143,7 @@ def main():
 
     if args.mode == 'wiki':
         wiki_corpus = WikiCorpus(args.wiki_loc, lemmatize=args.lemma, tokenizer_func=wiki_tokenizer, article_min_tokens=100, token_min_len=3, token_max_len=15)
-<<<<<<< HEAD
-       
-=======
 
->>>>>>> cb2df6524e9f69b9b5e2c22b49bae393418c283a
         wiki_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
 
         MmCorpus.serialize(args.corp_loc + '.mm', wiki_corpus)
