@@ -81,7 +81,7 @@ tempora==3.0.0
 toml==0.10.1
 tqdm==4.47.0
 tweepy==3.8.0
-urllib3==1.25.9
+urllib3==1.26.5
 uszipcode==0.2.4
 wcwidth==0.2.5
 zc.lockfile==2.0
