@@ -39,7 +39,7 @@ mysqlclient==2.0.3
 networkx==2.4
 nltk==3.5
 numexpr==2.7.1
-numpy==1.19.0
+numpy==1.22.0
 oauthlib==3.1.0
 packaging==20.4
 pandas==1.0.5
