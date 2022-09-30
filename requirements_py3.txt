@@ -29,7 +29,7 @@ jaraco.functools==3.0.1
 jaraco.text==3.2.0
 Jinja2==2.11.3
 jmespath==0.10.0
-joblib==0.15.1
+joblib==1.2.0
 kiwisolver==1.2.0
 lxml==4.9.1
 MarkupSafe==1.1.1
