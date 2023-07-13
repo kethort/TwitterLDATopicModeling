@@ -18,7 +18,7 @@ docutils==0.15.2
 docx==0.2.4
 feedparser==5.2.1
 funcy==1.14
-future==0.18.2
+future==0.18.3
 gensim==3.8.3
 idna==2.10
 importlib-metadata==1.7.0

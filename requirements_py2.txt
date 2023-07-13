@@ -19,7 +19,7 @@ docutils==0.15.2
 feedparser==5.2.1
 funcsigs==1.0.2
 funcy==1.14
-future==0.18.2
+future==0.18.3
 futures==3.3.0
 gensim==3.8.3
 idna==2.10
