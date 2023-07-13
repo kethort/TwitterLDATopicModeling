@@ -10,7 +10,7 @@ cycler==0.10.0
 Cython==0.29.14
 decorator==4.4.2
 funcy==1.15
-future==0.18.2
+future==0.18.3
 gensim==4.0.0b0
 idna==2.10
 iniconfig==1.1.1
