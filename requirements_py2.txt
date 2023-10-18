@@ -68,7 +68,7 @@ subprocess32==3.5.4
 toml==0.10.1
 tqdm==4.47.0
 tweepy==3.8.0
-urllib3==1.26.17
+urllib3==1.26.18
 uszipcode==0.2.4
 wcwidth==0.2.5
 zipp==1.2.0
