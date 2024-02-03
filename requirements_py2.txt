@@ -46,7 +46,7 @@ Pattern==2.6
 pluggy==0.13.1
 py==1.10.0
 pycodestyle==2.6.0
-pycryptodome==3.9.8
+pycryptodome==3.19.1
 pyLDAvis==2.1.2
 pyparsing==2.4.7
 PyPrind==2.11.2
