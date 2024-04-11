@@ -22,7 +22,7 @@ feedparser==5.2.1
 funcy==1.14
 future==0.18.3
 gensim==3.8.3
-idna==2.10
+idna==3.7
 importlib-metadata==1.7.0
 importlib-resources==3.0.0
 jaraco.classes==3.1.0
