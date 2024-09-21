@@ -71,4 +71,4 @@ tweepy==3.8.0
 urllib3==1.26.18
 uszipcode==0.2.4
 wcwidth==0.2.5
-zipp==1.2.0
+zipp==3.19.1
