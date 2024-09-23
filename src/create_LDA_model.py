@@ -17,6 +17,9 @@ import argcomplete
 from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+from packaging.version import Version
+
+gensim_ver = gensim.__version__
 
 ''' a command-line utility for the Gensim library that creates LDA model either from a folder of texts 
     or a wikipedia dump. '''
@@ -142,6 +145,10 @@ def main():
         doc_corpus.dictionary.save(args.corp_loc + '.dict')
 
     if args.mode == 'wiki':
+        # later versions of Gensim don't have lemmatize feature
+        if Version(gensim_ver) > Version("3.8.3"):
+            args.lemma = None
+
         wiki_corpus = WikiCorpus(args.wiki_loc, lemmatize=args.lemma, tokenizer_func=wiki_tokenizer, article_min_tokens=100, token_min_len=3, token_max_len=15)
 
         wiki_corpus.dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=DEFAULT_DICT_SIZE)
