@@ -35,7 +35,7 @@ more-itertools==5.0.0
 mysqlclient==1.4.6
 networkx==2.2
 nltk==3.9
-numexpr==2.7.1
+numexpr==2.8.5
 numpy==1.22.0
 oauthlib==3.1.0
 packaging==20.4
