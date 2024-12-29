@@ -41,7 +41,7 @@ MySQL-python==1.2.5
 mysqlclient==1.4.6
 networkx==2.4
 nltk==3.9
-numexpr==2.7.1
+numexpr==2.8.5
 numpy==1.22.0
 oauthlib==3.1.0
 packaging==20.4
