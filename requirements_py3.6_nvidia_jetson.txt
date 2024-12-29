@@ -29,7 +29,7 @@ jaraco.classes==3.1.0
 jaraco.collections==3.0.0
 jaraco.functools==3.0.1
 jaraco.text==3.2.0
-Jinja2==3.1.4
+Jinja2==3.1.5
 jmespath==0.10.0
 joblib==1.2.0
 kiwisolver==1.2.0
